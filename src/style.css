@@ -1,0 +1,70 @@
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  height: 100%;
+  overflow: hidden;
+  background: #000;
+  color: #f2f2f2;
+  font-family: system-ui, sans-serif;
+}
+
+#app {
+  position: fixed;
+  inset: 0;
+}
+
+#game {
+  display: block;
+  width: 100%;
+  height: 100%;
+  outline: none;
+}
+
+#game:focus-visible {
+  outline: 3px solid #ffd76a;
+  outline-offset: -3px;
+}
+
+.focus-overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+  padding: 1rem;
+  background: rgba(0, 0, 0, 0.78);
+  text-align: center;
+  cursor: pointer;
+}
+
+.focus-overlay[hidden] {
+  display: none;
+}
+
+.focus-overlay__title {
+  margin: 0;
+  font-size: clamp(1.5rem, 5vw, 2.5rem);
+  letter-spacing: 0.08em;
+}
+
+.focus-overlay__prompt {
+  margin: 0;
+  font-size: 1.15rem;
+  color: #ffd76a;
+}
+
+.focus-overlay__help {
+  margin: 0;
+  max-width: 32rem;
+  font-size: 0.95rem;
+  line-height: 1.5;
+  color: #d0d0d0;
+}
