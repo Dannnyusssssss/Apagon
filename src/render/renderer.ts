@@ -1,11 +1,19 @@
 import { createCamera, followTarget } from '../core/camera';
 import { lerp } from '../core/math';
 import { BALANCE } from '../data/balance';
+import { hasAllKeys, type Item } from '../game/items';
 import { isWall, roomHeight, roomWidth, type RoomGrid } from '../game/rooms';
 import { castVisibility } from '../game/visibility';
-import type { World } from '../game/world';
+import { currentLightRadius, type World } from '../game/world';
+import { Hud } from './hud';
 import { Lighting, type LightShape, type ViewTransform } from './lighting';
-import { createEnemySprite, createPlayerSprite } from './sprites';
+import {
+  createBatterySprite,
+  createDoorSprite,
+  createEnemySprite,
+  createKeySprite,
+  createPlayerSprite,
+} from './sprites';
 
 const COLORS = {
   background: '#050506',
@@ -16,6 +24,9 @@ const COLORS = {
   wallShadow: 'rgba(0, 0, 0, 0.45)',
 } as const;
 
+/** Drawn size of keys and batteries, as a fraction of the tile. */
+const ITEM_SIZE_FRACTION = 0.7;
+
 /** Height of the lighter strip drawn on top of each wall tile, as a fraction of the tile. */
 const WALL_TOP_FRACTION = 0.18;
 
@@ -25,6 +36,11 @@ export class Renderer {
   private readonly lighting = new Lighting();
   private readonly playerSprite = createPlayerSprite();
   private readonly enemySprite = createEnemySprite();
+  private readonly keySprite = createKeySprite();
+  private readonly batterySprite = createBatterySprite();
+  private readonly doorSprite = createDoorSprite(false);
+  private readonly doorReadySprite = createDoorSprite(true);
+  private readonly hud = new Hud();
   private readonly view: ViewTransform = { scale: 1, offsetX: 0, offsetY: 0 };
   private readonly light: LightShape = {
     x: 0,
@@ -58,6 +74,7 @@ export class Renderer {
       this.canvas.height = h;
       this.lighting.resize(w, h);
     }
+    this.hud.resize(this.dpr);
     const shortSide = Math.min(this.cssWidth, this.cssHeight);
     this.camera.scale = shortSide / (BALANCE.view.tilesOnShortSide * BALANCE.world.tileSize);
   }
@@ -80,6 +97,8 @@ export class Renderer {
 
     ctx.setTransform(view.scale, 0, 0, view.scale, view.offsetX, view.offsetY);
     this.drawRoom(room);
+    this.drawDoor(world);
+    this.drawItems(world.items, room.tileSize);
     this.drawBody(
       this.enemySprite,
       lerp(enemy.prevX, enemy.x, alpha),
@@ -92,7 +111,7 @@ export class Renderer {
     light.x = px;
     light.y = py;
     if (flashlight.on) {
-      light.radius = cfg.radius;
+      light.radius = currentLightRadius(flashlight);
       light.strength = flashlight.strength;
       light.glowAlpha = cfg.warmGlowAlpha * flashlight.strength;
     } else {
@@ -103,6 +122,22 @@ export class Renderer {
     // Same pure visibility the game logic uses, at the interpolated position.
     castVisibility(room, px, py, light.radius, BALANCE.visibility.wallPenetration, light.polygon);
     this.lighting.draw(ctx, view, light);
+    this.hud.draw(ctx, world, this.canvas.width, this.canvas.height);
+  }
+
+  private drawDoor(world: World): void {
+    const { door, tileSize: t } = world.room;
+    const sprite = hasAllKeys(world.inventory) ? this.doorReadySprite : this.doorSprite;
+    this.ctx.drawImage(sprite, door.col * t, door.row * t, t, t);
+  }
+
+  private drawItems(items: readonly Item[], tileSize: number): void {
+    const half = (tileSize * ITEM_SIZE_FRACTION) / 2;
+    for (const item of items) {
+      if (item.taken) continue;
+      const sprite = item.kind === 'key' ? this.keySprite : this.batterySprite;
+      this.ctx.drawImage(sprite, item.x - half, item.y - half, half * 2, half * 2);
+    }
   }
 
   private drawBody(sprite: HTMLCanvasElement, x: number, y: number, radius: number): void {
@@ -132,6 +167,7 @@ export class Renderer {
     for (let row = 0; row < room.rows; row++) {
       for (let col = 0; col < room.cols; col++) {
         if (!isWall(room, col, row)) continue;
+        if (col === room.door.col && row === room.door.row) continue;
         const x = col * t;
         const y = row * t;
         ctx.fillStyle = COLORS.wall;

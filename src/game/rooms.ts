@@ -2,6 +2,8 @@ import type { RoomDef } from '../data/rooms';
 
 export const TILE_FLOOR = 0;
 export const TILE_WALL = 1;
+/** The exit door: solid for bodies and light, like a wall. */
+export const TILE_DOOR = 2;
 
 export interface TileCoord {
   readonly col: number;
@@ -18,6 +20,12 @@ export interface RoomGrid {
   readonly spawnRow: number;
   /** Possible enemy starts, in tile coordinates. At least one. */
   readonly enemySpawns: readonly TileCoord[];
+  /** Keys to collect, in tile coordinates. At least one. */
+  readonly keys: readonly TileCoord[];
+  /** Battery pickups, in tile coordinates. */
+  readonly batteries: readonly TileCoord[];
+  /** The single exit door, next to at least one floor tile. */
+  readonly door: TileCoord;
 }
 
 /** Builds a tile grid from a text layout. Throws on malformed data. */
@@ -27,39 +35,87 @@ export function parseRoom(def: RoomDef, tileSize: number): RoomGrid {
   if (rows === 0 || cols === 0) throw new Error(`Room "${def.id}" is empty`);
 
   const tiles = new Uint8Array(cols * rows);
-  let spawnCol = -1;
-  let spawnRow = -1;
+  let spawn: TileCoord | null = null;
+  let door: TileCoord | null = null;
   const enemySpawns: TileCoord[] = [];
+  const keys: TileCoord[] = [];
+  const batteries: TileCoord[] = [];
 
-  def.layout.forEach((line, row) => {
+  for (let row = 0; row < rows; row++) {
+    const line = def.layout[row] ?? '';
     if (line.length !== cols) throw new Error(`Room "${def.id}" row ${row} has wrong width`);
     for (let col = 0; col < cols; col++) {
       const ch = line[col];
-      if (ch === '#') {
-        tiles[row * cols + col] = TILE_WALL;
-      } else if (ch === '.' || ch === 'P' || ch === 'E') {
-        tiles[row * cols + col] = TILE_FLOOR;
-        if (ch === 'E') enemySpawns.push({ col, row });
-        if (ch === 'P') {
-          if (spawnCol >= 0) throw new Error(`Room "${def.id}" has more than one spawn`);
-          spawnCol = col;
-          spawnRow = row;
-        }
-      } else {
-        throw new Error(`Room "${def.id}" has unknown tile "${String(ch)}"`);
+      const here = { col, row };
+      tiles[row * cols + col] = ch === '#' ? TILE_WALL : ch === 'D' ? TILE_DOOR : TILE_FLOOR;
+      switch (ch) {
+        case '#':
+        case '.':
+          break;
+        case 'P':
+          if (spawn) throw new Error(`Room "${def.id}" has more than one spawn`);
+          spawn = here;
+          break;
+        case 'D':
+          if (door) throw new Error(`Room "${def.id}" has more than one door`);
+          door = here;
+          break;
+        case 'E':
+          enemySpawns.push(here);
+          break;
+        case 'K':
+          keys.push(here);
+          break;
+        case 'B':
+          batteries.push(here);
+          break;
+        default:
+          throw new Error(`Room "${def.id}" has unknown tile "${String(ch)}"`);
       }
     }
-  });
+  }
 
-  if (spawnCol < 0) throw new Error(`Room "${def.id}" has no spawn`);
+  const start = spawn;
+  const exit = door;
+  if (!start) throw new Error(`Room "${def.id}" has no spawn`);
   if (enemySpawns.length === 0) throw new Error(`Room "${def.id}" has no enemy spawn`);
-  return { cols, rows, tileSize, tiles, spawnCol, spawnRow, enemySpawns };
+  if (keys.length === 0) throw new Error(`Room "${def.id}" has no key`);
+  if (!exit) throw new Error(`Room "${def.id}" has no door`);
+
+  const room: RoomGrid = {
+    cols,
+    rows,
+    tileSize,
+    tiles,
+    spawnCol: start.col,
+    spawnRow: start.row,
+    enemySpawns,
+    keys,
+    batteries,
+    door: exit,
+  };
+  if (!hasFloorNeighbour(room, exit)) throw new Error(`Room "${def.id}" door cannot be reached`);
+  return room;
 }
 
-/** Anything outside the grid counts as wall. */
+function hasFloorNeighbour(room: RoomGrid, tile: TileCoord): boolean {
+  return (
+    !isWall(room, tile.col + 1, tile.row) ||
+    !isWall(room, tile.col - 1, tile.row) ||
+    !isWall(room, tile.col, tile.row + 1) ||
+    !isWall(room, tile.col, tile.row - 1)
+  );
+}
+
+/** Returns the tile type; anything outside the grid counts as wall. */
+export function tileAt(room: RoomGrid, col: number, row: number): number {
+  if (col < 0 || row < 0 || col >= room.cols || row >= room.rows) return TILE_WALL;
+  return room.tiles[row * room.cols + col] ?? TILE_WALL;
+}
+
+/** True for anything solid: walls, the door and everything outside the grid. */
 export function isWall(room: RoomGrid, col: number, row: number): boolean {
-  if (col < 0 || row < 0 || col >= room.cols || row >= room.rows) return true;
-  return room.tiles[row * room.cols + col] === TILE_WALL;
+  return tileAt(room, col, row) !== TILE_FLOOR;
 }
 
 export function roomWidth(room: RoomGrid): number {

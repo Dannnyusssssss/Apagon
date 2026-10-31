@@ -7,11 +7,11 @@ const STEP = BALANCE.simulation.stepSeconds;
 
 const ROOM: RoomDef = {
   id: 'catch',
-  layout: ['##########', '#P......E#', '#........#', '##########'],
+  layout: ['##########', '#P......E#', '#.......K#', '#D########'],
 };
 
-const IDLE: StepInput = { axisX: 0, axisY: 0, toggleFlashlight: false };
-const RIGHT: StepInput = { axisX: 1, axisY: 0, toggleFlashlight: false };
+const IDLE: StepInput = { axisX: 0, axisY: 0, toggleFlashlight: false, interact: false };
+const RIGHT: StepInput = { axisX: 1, axisY: 0, toggleFlashlight: false, interact: false };
 
 describe('defeat', () => {
   it('happens when the enemy reaches the player', () => {

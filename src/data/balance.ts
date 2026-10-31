@@ -25,6 +25,24 @@ export const BALANCE = {
     /** Opacity of the warm glow added over the lit area. */
     warmGlowAlpha: 0.12,
   },
+  battery: {
+    /** Seconds of light from a full charge. */
+    drainSeconds: 60,
+    /** Light radius at an almost empty battery, as a fraction of the full radius. */
+    minRadiusFraction: 0.45,
+    /** Charge added by one battery pickup (1 = full). */
+    rechargeAmount: 0.4,
+    /** At or below this charge the HUD warns about low battery. */
+    lowThreshold: 0.25,
+  },
+  interact: {
+    /** Max distance from the player center to an item center (or the door edge). */
+    distance: 40,
+  },
+  warning: {
+    /** The "enemy near" signal starts at this distance and grows as it gets closer. */
+    enemyNearDistance: 240,
+  },
   enemy: {
     /** Half-size of the collision box; also the drawn radius. */
     radius: 15,

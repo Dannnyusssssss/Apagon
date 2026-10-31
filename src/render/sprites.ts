@@ -115,3 +115,115 @@ export function createEnemySprite(): HTMLCanvasElement {
 
   return canvas;
 }
+
+const ITEM_SPRITE_SIZE = 96;
+const DOOR_SPRITE_SIZE = 96;
+
+/** Key: a warm metal ring with a shaft and two teeth. Drawn into a 1x1 unit box. */
+export function createKeySprite(): HTMLCanvasElement {
+  const [canvas, ctx] = createCanvas(ITEM_SPRITE_SIZE);
+  const s = ITEM_SPRITE_SIZE;
+
+  const glow = ctx.createRadialGradient(s / 2, s / 2, 0, s / 2, s / 2, s / 2);
+  glow.addColorStop(0, 'rgba(255, 210, 120, 0.35)');
+  glow.addColorStop(1, 'rgba(255, 210, 120, 0)');
+  ctx.fillStyle = glow;
+  ctx.fillRect(0, 0, s, s);
+
+  const metal = ctx.createLinearGradient(0, s * 0.3, 0, s * 0.7);
+  metal.addColorStop(0, '#fff1c4');
+  metal.addColorStop(0.5, '#e0b34f');
+  metal.addColorStop(1, '#8a6420');
+  ctx.strokeStyle = metal;
+  ctx.fillStyle = metal;
+  ctx.lineWidth = s * 0.08;
+  ctx.beginPath();
+  ctx.arc(s * 0.3, s * 0.5, s * 0.14, 0, Math.PI * 2);
+  ctx.stroke();
+  ctx.fillRect(s * 0.42, s * 0.46, s * 0.4, s * 0.08);
+  ctx.fillRect(s * 0.66, s * 0.5, s * 0.06, s * 0.14);
+  ctx.fillRect(s * 0.76, s * 0.5, s * 0.06, s * 0.1);
+  return canvas;
+}
+
+/** Battery: a green cell with a bright cap and a "+" mark. Drawn into a 1x1 unit box. */
+export function createBatterySprite(): HTMLCanvasElement {
+  const [canvas, ctx] = createCanvas(ITEM_SPRITE_SIZE);
+  const s = ITEM_SPRITE_SIZE;
+
+  const glow = ctx.createRadialGradient(s / 2, s / 2, 0, s / 2, s / 2, s / 2);
+  glow.addColorStop(0, 'rgba(150, 255, 170, 0.3)');
+  glow.addColorStop(1, 'rgba(150, 255, 170, 0)');
+  ctx.fillStyle = glow;
+  ctx.fillRect(0, 0, s, s);
+
+  const body = ctx.createLinearGradient(s * 0.3, 0, s * 0.7, 0);
+  body.addColorStop(0, '#1f5a32');
+  body.addColorStop(0.45, '#5fd384');
+  body.addColorStop(1, '#16402a');
+  ctx.fillStyle = body;
+  ctx.fillRect(s * 0.32, s * 0.24, s * 0.36, s * 0.58);
+  ctx.fillStyle = '#d9e6dc';
+  ctx.fillRect(s * 0.42, s * 0.16, s * 0.16, s * 0.08);
+  ctx.fillStyle = 'rgba(255, 255, 255, 0.85)';
+  ctx.fillRect(s * 0.46, s * 0.36, s * 0.08, s * 0.2);
+  ctx.fillRect(s * 0.4, s * 0.42, s * 0.2, s * 0.08);
+  return canvas;
+}
+
+/**
+ * Exit door seen from above: wooden planks with a lock.
+ * `ready` paints the lock glowing (all keys collected); the HUD also says it in text.
+ */
+export function createDoorSprite(ready: boolean): HTMLCanvasElement {
+  const [canvas, ctx] = createCanvas(DOOR_SPRITE_SIZE);
+  const s = DOOR_SPRITE_SIZE;
+
+  const wood = ctx.createLinearGradient(0, 0, s, s);
+  wood.addColorStop(0, '#7a5232');
+  wood.addColorStop(1, '#3e2716');
+  ctx.fillStyle = wood;
+  ctx.fillRect(0, 0, s, s);
+
+  ctx.strokeStyle = 'rgba(0, 0, 0, 0.45)';
+  ctx.lineWidth = s * 0.03;
+  for (let i = 1; i < 4; i++) {
+    ctx.beginPath();
+    ctx.moveTo((s * i) / 4, 0);
+    ctx.lineTo((s * i) / 4, s);
+    ctx.stroke();
+  }
+  ctx.strokeStyle = 'rgba(255, 220, 170, 0.35)';
+  ctx.lineWidth = s * 0.05;
+  ctx.strokeRect(s * 0.04, s * 0.04, s * 0.92, s * 0.92);
+
+  const c = s / 2;
+  if (ready) {
+    const halo = ctx.createRadialGradient(c, c, 0, c, c, s * 0.3);
+    halo.addColorStop(0, 'rgba(255, 230, 140, 0.8)');
+    halo.addColorStop(1, 'rgba(255, 230, 140, 0)');
+    ctx.fillStyle = halo;
+    ctx.fillRect(0, 0, s, s);
+  }
+  ctx.fillStyle = ready ? '#ffe08a' : '#9a9a9a';
+  ctx.beginPath();
+  ctx.arc(c, c, s * 0.12, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.fillStyle = '#1a1208';
+  ctx.fillRect(c - s * 0.02, c - s * 0.05, s * 0.04, s * 0.1);
+  return canvas;
+}
+
+/** Dark edge vignette for the "enemy near" signal. Stretched over the screen. */
+export function createVignetteSprite(): HTMLCanvasElement {
+  const size = 256;
+  const [canvas, ctx] = createCanvas(size);
+  const r = size / 2;
+  const gradient = ctx.createRadialGradient(r, r, r * 0.45, r, r, r * 1.05);
+  gradient.addColorStop(0, 'rgba(30, 0, 8, 0)');
+  gradient.addColorStop(0.6, 'rgba(30, 0, 8, 0.55)');
+  gradient.addColorStop(1, 'rgba(20, 0, 5, 0.95)');
+  ctx.fillStyle = gradient;
+  ctx.fillRect(0, 0, size, size);
+  return canvas;
+}

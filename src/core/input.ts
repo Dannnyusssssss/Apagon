@@ -3,17 +3,23 @@ import type { Vec2 } from './math';
 
 const PREVENT_DEFAULT: ReadonlySet<string> = new Set(CONTROLS.preventDefault);
 const TOGGLE_FLASHLIGHT: ReadonlySet<string> = new Set(CONTROLS.toggleFlashlight);
+const INTERACT: ReadonlySet<string> = new Set(CONTROLS.interact);
+const PAUSE: ReadonlySet<string> = new Set(CONTROLS.pause);
 
 /** Keyboard state without DOM access, so it can be tested. */
 export class InputState {
   private readonly down = new Set<string>();
   private toggleRequested = false;
+  private interactRequested = false;
+  private pauseRequested = false;
 
   /** Returns true when the browser default action must be prevented. */
   keyDown(code: string, repeat: boolean): boolean {
     this.down.add(code);
-    if (!repeat && TOGGLE_FLASHLIGHT.has(code)) {
-      this.toggleRequested = true;
+    if (!repeat) {
+      if (TOGGLE_FLASHLIGHT.has(code)) this.toggleRequested = true;
+      if (INTERACT.has(code)) this.interactRequested = true;
+      if (PAUSE.has(code)) this.pauseRequested = true;
     }
     return PREVENT_DEFAULT.has(code);
   }
@@ -25,6 +31,8 @@ export class InputState {
   clear(): void {
     this.down.clear();
     this.toggleRequested = false;
+    this.interactRequested = false;
+    this.pauseRequested = false;
   }
 
   isDown(code: string): boolean {
@@ -35,6 +43,20 @@ export class InputState {
   consumeToggle(): boolean {
     const requested = this.toggleRequested;
     this.toggleRequested = false;
+    return requested;
+  }
+
+  /** Returns true once per interact key press. */
+  consumeInteract(): boolean {
+    const requested = this.interactRequested;
+    this.interactRequested = false;
+    return requested;
+  }
+
+  /** Returns true once per pause key press. */
+  consumePause(): boolean {
+    const requested = this.pauseRequested;
+    this.pauseRequested = false;
     return requested;
   }
 

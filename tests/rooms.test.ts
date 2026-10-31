@@ -1,40 +1,55 @@
 import { describe, expect, it } from 'vitest';
 import { createCamera, followTarget } from '../src/core/camera';
 import { TEST_ROOM } from '../src/data/rooms';
-import { isWall, parseRoom } from '../src/game/rooms';
+import { isWall, parseRoom, tileAt, TILE_DOOR } from '../src/game/rooms';
 
 describe('parseRoom', () => {
-  it('reads size and spawn', () => {
-    const room = parseRoom({ id: 'r', layout: ['#####', '#P.E#', '#####'] }, 10);
-    expect(room.cols).toBe(5);
+  it('reads size, spawn, items and door', () => {
+    const room = parseRoom({ id: 'r', layout: ['######', '#PKBE#', '#D####'] }, 10);
+    expect(room.cols).toBe(6);
     expect(room.rows).toBe(3);
     expect(room.spawnCol).toBe(1);
     expect(room.spawnRow).toBe(1);
-    expect(isWall(room, 2, 1)).toBe(false);
     expect(isWall(room, 0, 0)).toBe(true);
-    expect(isWall(room, 3, 1)).toBe(false);
-    expect(room.enemySpawns).toEqual([{ col: 3, row: 1 }]);
+    for (let col = 1; col <= 4; col++) expect(isWall(room, col, 1)).toBe(false);
+    expect(room.enemySpawns).toEqual([{ col: 4, row: 1 }]);
+    expect(room.keys).toEqual([{ col: 2, row: 1 }]);
+    expect(room.batteries).toEqual([{ col: 3, row: 1 }]);
+    expect(room.door).toEqual({ col: 1, row: 2 });
   });
 
-  it('reads every enemy spawn and requires at least one', () => {
-    const room = parseRoom({ id: 'r', layout: ['#####', '#EPE#', '#####'] }, 10);
+  it('treats the door as solid', () => {
+    const room = parseRoom({ id: 'r', layout: ['#####', '#PKE#', '#D###'] }, 10);
+    expect(isWall(room, 1, 2)).toBe(true);
+    expect(tileAt(room, 1, 2)).toBe(TILE_DOOR);
+  });
+
+  it('reads every enemy spawn', () => {
+    const room = parseRoom({ id: 'r', layout: ['######', '#EPKE#', '#D####'] }, 10);
     expect(room.enemySpawns).toEqual([
       { col: 1, row: 1 },
-      { col: 3, row: 1 },
+      { col: 4, row: 1 },
     ]);
-    expect(() => parseRoom({ id: 'r', layout: ['####', '#P.#', '####'] }, 10)).toThrow();
   });
 
   it('rejects malformed layouts', () => {
-    expect(() => parseRoom({ id: 'r', layout: [] }, 10)).toThrow();
-    expect(() => parseRoom({ id: 'r', layout: ['###', '#P', '###'] }, 10)).toThrow();
-    expect(() => parseRoom({ id: 'r', layout: ['###', '#x#', '###'] }, 10)).toThrow();
-    expect(() => parseRoom({ id: 'r', layout: ['###', '#.#', '###'] }, 10)).toThrow();
-    expect(() => parseRoom({ id: 'r', layout: ['#####', '#PPE#', '#####'] }, 10)).toThrow();
+    const bad = (layout: string[]) => () => parseRoom({ id: 'r', layout }, 10);
+    expect(bad([])).toThrow();
+    expect(bad(['#####', '#PKE', '#D###'])).toThrow(); // uneven width
+    expect(bad(['#####', '#PKx#', '#D###'])).toThrow(); // unknown tile
+    expect(bad(['#####', '#.KE#', '#D###'])).toThrow(); // no spawn
+    expect(bad(['######', '#PPKE#', '#D####'])).toThrow(); // two spawns
+    expect(bad(['#####', '#P.K#', '#D###'])).toThrow(); // no enemy start
+    expect(bad(['#####', '#P.E#', '#D###'])).toThrow(); // no key
+    expect(bad(['#####', '#PKE#', '#####'])).toThrow(); // no door
+    expect(bad(['#####', '#PKE#', '#DD##'])).toThrow(); // two doors
+    expect(bad(['#####', '#PKE#', '#####', 'D####'])).toThrow(); // door out of reach
   });
 
   it('the test room is valid and closed by walls', () => {
     const room = parseRoom(TEST_ROOM, 48);
+    expect(room.keys.length).toBe(3);
+    expect(room.batteries.length).toBeGreaterThan(0);
     for (let col = 0; col < room.cols; col++) {
       expect(isWall(room, col, 0)).toBe(true);
       expect(isWall(room, col, room.rows - 1)).toBe(true);

@@ -13,13 +13,13 @@ const OPEN_ROOM = {
     '#..........#',
     '#....P.....#',
     '#..........#',
-    '#..........#',
-    '############',
+    '#K.........#',
+    '#D##########',
   ],
 };
 
 function input(axisX: number, axisY: number, toggleFlashlight = false): StepInput {
-  return { axisX, axisY, toggleFlashlight };
+  return { axisX, axisY, toggleFlashlight, interact: false };
 }
 
 describe('movement system', () => {

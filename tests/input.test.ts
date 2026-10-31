@@ -36,6 +36,24 @@ describe('InputState', () => {
     expect(input.consumeToggle()).toBe(true);
   });
 
+  it('requests interact and pause once per press', () => {
+    const input = new InputState();
+    input.keyDown('KeyE', false);
+    input.keyDown('KeyE', true);
+    expect(input.consumeInteract()).toBe(true);
+    expect(input.consumeInteract()).toBe(false);
+    input.keyDown('Escape', false);
+    expect(input.consumePause()).toBe(true);
+    expect(input.consumePause()).toBe(false);
+    input.keyDown('KeyP', false);
+    expect(input.consumePause()).toBe(true);
+    input.keyDown('KeyE', false);
+    input.keyDown('KeyP', false);
+    input.clear();
+    expect(input.consumeInteract()).toBe(false);
+    expect(input.consumePause()).toBe(false);
+  });
+
   it('prevents the default action only for arrows and space', () => {
     const input = new InputState();
     expect(input.keyDown('ArrowDown', false)).toBe(true);

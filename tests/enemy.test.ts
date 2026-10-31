@@ -9,17 +9,17 @@ const FREEZE_STEPS = Math.round(BALANCE.enemy.freezeAfterLightSeconds / STEP);
 const LIT_RADIUS = BALANCE.flashlight.radius * BALANCE.visibility.litRadiusFraction;
 const SEED = 7;
 
-const IDLE: StepInput = { axisX: 0, axisY: 0, toggleFlashlight: false };
+const IDLE: StepInput = { axisX: 0, axisY: 0, toggleFlashlight: false, interact: false };
 
 const CORRIDOR: RoomDef = {
   id: 'corridor',
-  layout: ['#############', '#P..........#', '#..........E#', '#############'],
+  layout: ['#############', '#P.........K#', '#..........E#', '#D###########'],
 };
 
 // The enemy has to walk around the wall through the bottom row.
 const AROUND: RoomDef = {
   id: 'around',
-  layout: ['#########', '#P..#..E#', '#...#...#', '#...#...#', '#.......#', '#########'],
+  layout: ['#########', '#P..#..E#', '#...#...#', '#...#...#', '#..K....#', '#D#######'],
 };
 
 function world(room: RoomDef, lightOn: boolean): World {
@@ -28,8 +28,12 @@ function world(room: RoomDef, lightOn: boolean): World {
   return w;
 }
 
+/** Keeps the battery full, so the light radius stays fixed while testing the chase. */
 function run(w: World, steps: number): void {
-  for (let i = 0; i < steps; i++) stepWorld(w, IDLE, STEP);
+  for (let i = 0; i < steps; i++) {
+    w.flashlight.battery = 1;
+    stepWorld(w, IDLE, STEP);
+  }
 }
 
 function distance(w: World): number {
@@ -124,7 +128,7 @@ describe('enemy and light', () => {
 describe('enemy start', () => {
   const THREE_STARTS: RoomDef = {
     id: 'starts',
-    layout: ['#########', '#E.....E#', '#...P...#', '#E......#', '#########'],
+    layout: ['#########', '#E.....E#', '#...P...#', '#E.....K#', '#D#######'],
   };
 
   it('is the same for the same seed', () => {
