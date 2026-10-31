@@ -30,6 +30,7 @@ Si Shift abre un aviso del sistema, usa F.
 
 - **Reducir parpadeo** (en el inicio y en la pausa): quita el parpadeo suave de la linterna y las animaciones del menú. Se activa solo si el sistema tiene activado "reducir movimiento". Aun sin activarlo, ningún cambio de luz supera 3 por segundo ni apaga la pantalla.
 - **Jugable sin sonido:** la batería baja y la cercanía del enemigo también se muestran en pantalla.
+- **Sonido posicional:** con auriculares se oye de qué lado y a qué distancia está el enemigo, y suena apagado si hay paredes de por medio. Cuando está cerca, el borde de la pantalla se oscurece más por el lado del que viene.
 - Se juega entero con teclado. El juego se pausa solo al perder el foco.
 
 ## Contenido

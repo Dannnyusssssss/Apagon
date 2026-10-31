@@ -50,6 +50,10 @@ export const BALANCE = {
   warning: {
     /** The "enemy near" signal starts at this distance and grows as it gets closer. */
     enemyNearDistance: 240,
+    /** Extra darkening on the side the enemy comes from, at touching distance. */
+    directionalMaxAlpha: 0.55,
+    /** Max turn of the directional shade, in radians per second, so it never jumps sides. */
+    directionTurnRate: 6,
   },
   enemy: {
     /** Half-size of the collision box; also the drawn radius. */
@@ -127,6 +131,40 @@ export const BALANCE = {
     crackleSlow: 1.6,
     crackleFast: 0.35,
     crackleVolume: 0.12,
+  },
+  enemyAudio: {
+    /** Beyond this distance (8 tiles) the enemy is not heard at all. */
+    hearingDistance: 384,
+    /** Exponent of the distance fade: above 1, it grows faster when close. */
+    distanceCurve: 1.5,
+    /** Strongest left/right pan, so the enemy never sounds in one ear only. */
+    maxPan: 0.85,
+    /** Below this distance the pan shrinks, so it does not swap ears when on top. */
+    panMinDistance: 48,
+    /** Low-pass cutoff with a clear line and behind a wall (muffled). */
+    openCutoff: 5000,
+    occludedCutoff: 600,
+    /** Volume factor behind a wall. */
+    occludedGain: 0.55,
+    /** How fast the wall muffling fades in and out, in full amount per second. */
+    occlusionRate: 4,
+    /** Seconds between footsteps at its normal speed; slower speeds space them out. */
+    stepInterval: 0.42,
+    /** Footsteps are never further apart than this (creeping in the light). */
+    stepMaxInterval: 1.1,
+    /** Footstep volume when creeping and when running in the dark. */
+    stepVolumeSlow: 0.04,
+    stepVolumeFast: 0.11,
+    /** Seconds between breaths while moving and while standing still. */
+    breathIntervalMoving: 2.2,
+    breathIntervalStill: 3.4,
+    breathVolume: 0.09,
+    /** Breath volume factor while it stands still: very low, but still there. */
+    stillBreathFraction: 0.35,
+    /** Below this speed fraction the enemy counts as standing still. */
+    movingThreshold: 0.05,
+    /** Time constant for pan, volume and muffling changes on the audio thread. */
+    mixSmoothing: 0.12,
   },
   music: {
     /** Music bus volume (under the master volume). */

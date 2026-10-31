@@ -4,6 +4,7 @@ import { CHORDS, midiToFrequency, ROOT } from './music';
 
 const CFG = BALANCE.audio;
 const MUSIC = BALANCE.music;
+const CFG_ENEMY = BALANCE.enemyAudio;
 /** Seed for the noise buffer; the noise only has to sound like noise. */
 const NOISE_SEED = 0x5eed;
 const NOISE_SECONDS = 1;
@@ -15,6 +16,11 @@ const SLOW_FADE = 0.4;
 const LEVEL_EPSILON = 0.002;
 /** Base pitch of the "dying bulb" hum: a low mains-like buzz laptops can play. */
 const BULB_HZ = 110;
+/** Seconds to fade the enemy sounds in at the start and out at the end of a run. */
+const ENEMY_FADE = 0.6;
+/** Smallest pan or volume change worth sending, and the cutoff change in Hz. */
+const MIX_EPSILON = 0.005;
+const CUTOFF_EPSILON = 20;
 
 type Wave = 'sine' | 'triangle' | 'square' | 'sawtooth';
 
@@ -37,6 +43,17 @@ export class Sfx {
   private musicFilter: BiquadFilterNode | null = null;
   private musicInput: GainNode | null = null;
   private musicOn = false;
+
+  /** Enemy sounds: input -> low-pass (walls) -> stereo pan -> distance volume -> on/off. */
+  private enemyInput: GainNode | null = null;
+  private enemyFilter: BiquadFilterNode | null = null;
+  private enemyPanner: StereoPannerNode | null = null;
+  private enemyGain: GainNode | null = null;
+  private enemyOutput: GainNode | null = null;
+  private enemyOn = false;
+  private enemyPan = 0;
+  private enemyLevel = 0;
+  private enemyCutoff = 0;
 
   /** Call from a click or key handler. Safe to call many times. */
   unlock(): void {
@@ -84,6 +101,74 @@ export class Sfx {
         MUSIC.fadeSeconds / 3,
       );
     }
+  }
+
+  /** Fades the enemy sounds in (start of a run) or out (end of a run). */
+  setEnemyAudible(on: boolean): void {
+    this.enemyOn = on;
+    if (this.ctx && this.enemyOutput) {
+      this.enemyOutput.gain.setTargetAtTime(on ? 1 : 0, this.ctx.currentTime, ENEMY_FADE / 3);
+    }
+  }
+
+  /**
+   * Where the enemy sounds come from: `pan` -1..1, `level` 0..1 (distance and walls),
+   * `cutoff` in Hz (muffled behind walls). Changes glide, so nothing jumps.
+   */
+  setEnemyMix(pan: number, level: number, cutoff: number): void {
+    const { ctx } = this;
+    if (!ctx) return;
+    const now = ctx.currentTime;
+    const smoothing = CFG_ENEMY.mixSmoothing;
+    if (Math.abs(pan - this.enemyPan) >= MIX_EPSILON) {
+      this.enemyPan = pan;
+      this.enemyPanner?.pan.setTargetAtTime(pan, now, smoothing);
+    }
+    if (
+      Math.abs(level - this.enemyLevel) >= MIX_EPSILON ||
+      (level === 0 && this.enemyLevel !== 0)
+    ) {
+      this.enemyLevel = level;
+      this.enemyGain?.gain.setTargetAtTime(level, now, smoothing);
+    }
+    if (Math.abs(cutoff - this.enemyCutoff) >= CUTOFF_EPSILON) {
+      this.enemyCutoff = cutoff;
+      this.enemyFilter?.frequency.setTargetAtTime(cutoff, now, smoothing);
+    }
+  }
+
+  /** A heavy, dull footstep of the enemy: low noise and a soft thump above 70 Hz. */
+  enemyStep(volume: number): void {
+    const { enemyInput } = this;
+    const now = this.now();
+    if (!enemyInput || now < 0) return;
+    this.noiseBurst('bandpass', 380, 0.1, volume, enemyInput);
+    this.tone('triangle', 120, now, 0.12, volume * 0.6, 85, enemyInput);
+  }
+
+  /** A low, rough breath: filtered noise (150-600 Hz) that swells in and fades out slowly. */
+  enemyBreath(volume: number): void {
+    const { ctx, enemyInput, noise } = this;
+    const start = this.now();
+    if (!ctx || !enemyInput || !noise || start < 0) return;
+    const inhale = 0.6;
+    const exhale = 1;
+    const source = ctx.createBufferSource();
+    source.buffer = noise;
+    source.loop = true;
+    const highpass = ctx.createBiquadFilter();
+    highpass.type = 'highpass';
+    highpass.frequency.value = 150;
+    const lowpass = ctx.createBiquadFilter();
+    lowpass.type = 'lowpass';
+    lowpass.frequency.value = 600;
+    const gain = ctx.createGain();
+    gain.gain.setValueAtTime(0.0001, start);
+    gain.gain.exponentialRampToValueAtTime(Math.max(0.0001, volume), start + inhale);
+    gain.gain.exponentialRampToValueAtTime(0.0001, start + inhale + exhale);
+    source.connect(highpass).connect(lowpass).connect(gain).connect(enemyInput);
+    source.start(start, (start * 3.17) % NOISE_SECONDS);
+    source.stop(start + inhale + exhale + 0.05);
   }
 
   /** A slow pad chord (index into CHORDS), two slightly detuned voices per note. */
@@ -206,6 +291,7 @@ export class Sfx {
       this.master = master;
       this.noise = createNoise(ctx);
       this.createMusicBus();
+      this.createEnemyBus();
       this.createBulb();
     } catch {
       this.ctx = null;
@@ -240,6 +326,41 @@ export class Sfx {
     this.music = music;
     this.musicFilter = filter;
     this.musicInput = input;
+  }
+
+  /** Enemy sounds go through walls muffling, stereo position and distance volume. */
+  private createEnemyBus(): void {
+    const { ctx, master } = this;
+    if (!ctx || !master) return;
+    const output = ctx.createGain();
+    output.gain.value = this.enemyOn ? 1 : 0;
+    output.connect(master);
+
+    const level = ctx.createGain();
+    level.gain.value = this.enemyLevel;
+    level.connect(output);
+
+    // Without stereo panning (very old browsers) the enemy is still heard, centered.
+    let panner: StereoPannerNode | null = null;
+    if (typeof ctx.createStereoPanner === 'function') {
+      panner = ctx.createStereoPanner();
+      panner.pan.value = this.enemyPan;
+      panner.connect(level);
+    }
+
+    const filter = ctx.createBiquadFilter();
+    filter.type = 'lowpass';
+    filter.frequency.value = this.enemyCutoff > 0 ? this.enemyCutoff : CFG_ENEMY.openCutoff;
+    filter.connect(panner ?? level);
+
+    const input = ctx.createGain();
+    input.connect(filter);
+
+    this.enemyInput = input;
+    this.enemyFilter = filter;
+    this.enemyPanner = panner;
+    this.enemyGain = level;
+    this.enemyOutput = output;
   }
 
   /**
@@ -319,24 +440,31 @@ export class Sfx {
     duration: number,
     volume: number,
     endFreq = freq,
+    destination: AudioNode | null = this.master,
   ): void {
-    const { ctx, master } = this;
-    if (!ctx || !master) return;
+    const { ctx } = this;
+    if (!ctx || !destination) return;
     const osc = ctx.createOscillator();
     osc.type = wave;
     osc.frequency.setValueAtTime(freq, start);
     if (endFreq !== freq) osc.frequency.exponentialRampToValueAtTime(endFreq, start + duration);
     const gain = ctx.createGain();
     envelope(gain, start, duration, volume);
-    osc.connect(gain).connect(master);
+    osc.connect(gain).connect(destination);
     osc.start(start);
     osc.stop(start + duration + 0.05);
   }
 
-  private noiseBurst(type: BiquadFilterType, freq: number, duration: number, volume: number): void {
-    const { ctx, master, noise } = this;
+  private noiseBurst(
+    type: BiquadFilterType,
+    freq: number,
+    duration: number,
+    volume: number,
+    destination: AudioNode | null = this.master,
+  ): void {
+    const { ctx, noise } = this;
     const start = this.now();
-    if (!ctx || !master || !noise || start < 0) return;
+    if (!ctx || !destination || !noise || start < 0) return;
     const source = ctx.createBufferSource();
     source.buffer = noise;
     const filter = ctx.createBiquadFilter();
@@ -344,7 +472,7 @@ export class Sfx {
     filter.frequency.value = freq;
     const gain = ctx.createGain();
     envelope(gain, start, duration, volume);
-    source.connect(filter).connect(gain).connect(master);
+    source.connect(filter).connect(gain).connect(destination);
     source.start(start, (start * 7.31) % (NOISE_SECONDS - duration));
     source.stop(start + duration + 0.05);
   }

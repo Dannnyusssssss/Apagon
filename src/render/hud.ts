@@ -4,7 +4,7 @@ import { isBatteryLow } from '../game/battery';
 import { missingKeys } from '../game/items';
 import type { Prompt } from '../game/systems/interact';
 import type { World } from '../game/world';
-import { createVignetteSprite } from './sprites';
+import { createSideShadeSprite, createVignetteSprite } from './sprites';
 
 const COLORS = {
   panel: 'rgba(0, 0, 0, 0.7)',
@@ -30,6 +30,7 @@ const FONT_SIZE = 16;
  */
 export class Hud {
   private readonly vignette = createVignetteSprite();
+  private readonly sideShade = createSideShadeSprite();
   private font = '';
   private unit = 1;
 
@@ -57,6 +58,7 @@ export class Hud {
     if (world.enemyNear > 0) {
       ctx.globalAlpha = world.enemyNear * VIGNETTE_MAX_ALPHA;
       ctx.drawImage(this.vignette, 0, 0, width, height);
+      this.drawSideShade(ctx, world, width, height);
       ctx.globalAlpha = 1;
     }
 
@@ -66,6 +68,27 @@ export class Hud {
     this.drawPrompt(ctx, world, width, height);
     this.drawSound(ctx, world.settings.muted, height);
     ctx.restore();
+  }
+
+  /**
+   * Darker on the side the enemy comes from, only while the "enemy near" vignette shows.
+   * The shade is stretched so its dark edge always lands on the screen border in that
+   * direction. Smooth changes only: no pulses or flashes.
+   */
+  private drawSideShade(
+    ctx: CanvasRenderingContext2D,
+    world: World,
+    width: number,
+    height: number,
+  ): void {
+    const { x, y } = world.enemyDirection;
+    const reach = Math.abs(x) * (width / 2) + Math.abs(y) * (height / 2);
+    const span = Math.sqrt(width * width + height * height);
+    ctx.globalAlpha = world.enemyNear * BALANCE.warning.directionalMaxAlpha;
+    ctx.translate(width / 2, height / 2);
+    ctx.rotate(Math.atan2(y, x));
+    ctx.drawImage(this.sideShade, -reach, -span / 2, reach * 2, span);
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
   }
 
   private drawPanel(ctx: CanvasRenderingContext2D, world: World): void {

@@ -8,6 +8,13 @@ import {
 } from './audio/cues';
 import { createMusicOutput, createMusicState, resetMusic, updateMusic } from './audio/music';
 import { Sfx } from './audio/sfx';
+import {
+  createEnemyAudioOutput,
+  createEnemyAudioState,
+  resetEnemyAudio,
+  updateEnemyAudio,
+  type EnemyAudioConfig,
+} from './audio/spatial';
 import { parseDebugParams } from './core/debugParams';
 import { attachKeyboard, InputState } from './core/input';
 import { FixedStepClock, GameLoop } from './core/loop';
@@ -54,6 +61,12 @@ const cues = createCueOutput();
 // The music has its own generator, so it never changes the gameplay sequence.
 const musicState = createMusicState(seed ^ 0x9e3779b9);
 const musicOut = createMusicOutput();
+const enemyAudioConfig: EnemyAudioConfig = {
+  ...BALANCE.enemyAudio,
+  fastRatio: BALANCE.enemy.darkSpeedMultiplier,
+};
+const enemyAudioState = createEnemyAudioState();
+const enemyAudio = createEnemyAudioOutput();
 const input = new InputState();
 const renderer = new Renderer(gameCanvas);
 
@@ -124,6 +137,20 @@ function playStepSounds(stepSeconds: number): void {
   if (cues.heartbeat) sfx.heartbeat(cues.heartbeatVolume);
   if (cues.flicker) sfx.flicker();
   if (cues.crackle) sfx.crackle();
+  if (world.status === 'playing') {
+    updateEnemyAudio(
+      enemyAudioState,
+      enemyAudioConfig,
+      world.room,
+      world.player,
+      world.enemy,
+      stepSeconds,
+      enemyAudio,
+    );
+    sfx.setEnemyMix(enemyAudio.pan, enemyAudio.gain, enemyAudio.cutoff);
+    if (enemyAudio.step) sfx.enemyStep(enemyAudio.stepVolume);
+    if (enemyAudio.breath) sfx.enemyBreath(enemyAudio.breathVolume);
+  }
   if (events.keyPicked > 0) sfx.pickupKey();
   if (events.batteryPicked > 0) sfx.pickupBattery();
   if (events.doorLocked > 0) sfx.locked();
@@ -136,10 +163,12 @@ function startRun(): void {
   resetWorld(world);
   resetCues(cueState);
   resetMusic(musicState, BALANCE.music);
+  resetEnemyAudio(enemyAudioState);
   // Started from a click or key press, so the browser allows audio.
   sfx.unlock();
   sfx.setBatteryLevel(0);
   sfx.setMusicOn(true);
+  sfx.setEnemyAudible(true);
   input.clear();
   state = 'playing';
   screens.hideAll();
@@ -170,6 +199,7 @@ function resume(): void {
 
 function finishRun(): void {
   sfx.setMusicOn(false);
+  sfx.setEnemyAudible(false);
   sfx.setBatteryLevel(0);
   if (world.status === 'lost') {
     state = 'lost';

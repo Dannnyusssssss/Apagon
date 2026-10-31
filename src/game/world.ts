@@ -1,3 +1,4 @@
+import type { Vec2 } from '../core/math';
 import { createRng, nextInt, type Rng } from '../core/rng';
 import { BALANCE } from '../data/balance';
 import type { RoomDef } from '../data/rooms';
@@ -30,7 +31,7 @@ import { flickerSystem } from './systems/flicker';
 import { createInteractState, interactSystem, type InteractState } from './systems/interact';
 import { movementSystem } from './systems/movement';
 import { visibilitySystem } from './systems/visibility';
-import { enemyNearSystem } from './systems/warning';
+import { enemyDirectionSystem, enemyNearSystem, snapEnemyDirection } from './systems/warning';
 
 export type WorldStatus = 'playing' | 'lost' | 'won';
 
@@ -69,6 +70,8 @@ export interface World {
   elapsedSeconds: number;
   /** 0 (far or none) to 1 (touching): drives the visual "enemy near" signal. */
   enemyNear: number;
+  /** Unit vector from the player toward the enemy, turning smoothly: side of the directional shade. */
+  readonly enemyDirection: Vec2;
   /** Face of the player character. */
   mood: Mood;
 }
@@ -104,6 +107,7 @@ export function createWorld(roomDef: RoomDef, options: WorldOptions = DEFAULT_OP
     status: 'playing',
     elapsedSeconds: 0,
     enemyNear: 0,
+    enemyDirection: { x: 0, y: 1 },
     mood: 'calm',
   };
   resetWorld(world);
@@ -134,6 +138,7 @@ export function resetWorld(world: World): void {
   world.status = 'playing';
   world.elapsedSeconds = 0;
   world.enemyNear = 0;
+  snapEnemyDirection(player, enemy, world.enemyDirection);
   world.mood = 'calm';
   clearEvents(world.events);
 }
@@ -207,6 +212,13 @@ export function stepWorld(world: World, input: StepInput, stepSeconds: number): 
   enemySystem(room, field, enemy, player, flashlight.on, BALANCE.enemy, stepSeconds);
   flickerSystem(flashlight, enemy.lit, world.settings.reduceFlicker, BALANCE.flicker, stepSeconds);
   world.enemyNear = enemyNearSystem(player, enemy, BALANCE.warning.enemyNearDistance);
+  enemyDirectionSystem(
+    player,
+    enemy,
+    world.enemyDirection,
+    BALANCE.warning.directionTurnRate,
+    stepSeconds,
+  );
   world.mood = playerMood(flashlight.battery, world.enemyNear, BALANCE.mood);
   if (!world.settings.godMode && catchSystem(player, enemy, BALANCE.enemy.catchDistance)) {
     events.caught++;

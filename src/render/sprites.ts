@@ -418,3 +418,19 @@ export function createVignetteSprite(): HTMLCanvasElement {
   ctx.fillRect(0, 0, size, size);
   return canvas;
 }
+
+/**
+ * Dark shade for the side the enemy comes from. Clear on the left half,
+ * darkening toward the right edge; the HUD turns it toward the enemy.
+ */
+export function createSideShadeSprite(): HTMLCanvasElement {
+  const size = 256;
+  const [canvas, ctx] = createCanvas(size);
+  const gradient = ctx.createLinearGradient(0, 0, size, 0);
+  gradient.addColorStop(0.5, 'rgba(20, 0, 5, 0)');
+  gradient.addColorStop(0.8, 'rgba(20, 0, 5, 0.45)');
+  gradient.addColorStop(1, 'rgba(15, 0, 4, 0.95)');
+  ctx.fillStyle = gradient;
+  ctx.fillRect(0, 0, size, size);
+  return canvas;
+}
