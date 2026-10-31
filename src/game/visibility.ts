@@ -1,3 +1,4 @@
+import { angleDelta } from '../core/math';
 import { isWall, type RoomGrid } from './rooms';
 
 /**
@@ -101,5 +102,64 @@ export function castVisibility(
     if (distance < radius) distance = Math.min(radius, distance + wallPenetration);
     out[i * 2] = originX + dirX * distance;
     out[i * 2 + 1] = originY + dirY * distance;
+  }
+}
+
+/** True when the direction (dx, dy) is within `halfAngle` of `aim` (edges included). */
+export function isInCone(dx: number, dy: number, aim: number, halfAngle: number): boolean {
+  if (dx === 0 && dy === 0) return true;
+  return Math.abs(angleDelta(aim, Math.atan2(dy, dx))) <= halfAngle;
+}
+
+/**
+ * Cone mode: true when the point is inside the beam. The light is on, the point is
+ * within `litRadius`, within `halfAngle` of `aim`, and no wall is in between.
+ */
+export function isLitCone(
+  room: RoomGrid,
+  lightOn: boolean,
+  lightX: number,
+  lightY: number,
+  litRadius: number,
+  aim: number,
+  halfAngle: number,
+  pointX: number,
+  pointY: number,
+): boolean {
+  if (!lightOn) return false;
+  const dx = pointX - lightX;
+  const dy = pointY - lightY;
+  if (dx * dx + dy * dy > litRadius * litRadius) return false;
+  if (!isInCone(dx, dy, aim, halfAngle)) return false;
+  return hasLineOfSight(room, lightX, lightY, pointX, pointY);
+}
+
+/**
+ * Builds the cone light polygon into `out` as x, y pairs: the origin first, then one
+ * vertex per ray spread evenly over the arc `aim - halfSpan` .. `aim + halfSpan`.
+ * Rays stop at walls, entering them by `wallPenetration` so wall faces are lit.
+ */
+export function castCone(
+  room: RoomGrid,
+  originX: number,
+  originY: number,
+  radius: number,
+  aim: number,
+  halfSpan: number,
+  wallPenetration: number,
+  out: Float32Array,
+): void {
+  out[0] = originX;
+  out[1] = originY;
+  const rays = (out.length >> 1) - 1;
+  const angleStep = rays > 1 ? (halfSpan * 2) / (rays - 1) : 0;
+  for (let i = 0; i < rays; i++) {
+    const angle = aim - halfSpan + i * angleStep;
+    const dirX = Math.cos(angle);
+    const dirY = Math.sin(angle);
+    let distance = castRay(room, originX, originY, dirX, dirY, radius);
+    if (distance < radius) distance = Math.min(radius, distance + wallPenetration);
+    out[(i + 1) * 2] = originX + dirX * distance;
+    out[(i + 1) * 2 + 1] = originY + dirY * distance;
   }
 }

@@ -32,6 +32,32 @@ export const BALANCE = {
     offHaloStrength: 0.35,
     /** Opacity of the warm glow added over the lit area. */
     warmGlowAlpha: 0.12,
+    /**
+     * Cone mode: half of the 70 degree beam. Only what is inside this angle
+     * (and the radius, with no wall in between) stops the enemy.
+     */
+    coneHalfAngle: (35 * Math.PI) / 180,
+    /** The drawn beam is full up to this half angle and fades out by the outer one. */
+    coneSoftInner: (25 * Math.PI) / 180,
+    coneSoftOuter: (45 * Math.PI) / 180,
+    /** How fast the beam turns toward where the player walks, in radians per second (540 degrees). */
+    turnRate: 3 * Math.PI,
+    /** Cone mode: small, dim halo so the player sees itself and the tiles around. It does not stop the enemy. */
+    haloRadius: 72,
+    haloStrength: 0.4,
+  },
+  /**
+   * Difficulty that changes with the light shape. The classic circle uses the base
+   * values (`enemy.speed`, `battery.drainSeconds`, `enemy.lightAdaptSeconds`).
+   */
+  lightModes: {
+    cone: {
+      /** The cone stops the enemy less often, so it is a bit slower. */
+      enemySpeed: 155,
+      /** A narrower beam lasts longer. */
+      drainSeconds: 42,
+      lightAdaptSeconds: 3.5,
+    },
   },
   battery: {
     /** Seconds of light from a full charge. */
@@ -94,6 +120,9 @@ export const BALANCE = {
   visibility: {
     /** Rays cast to build the light polygon. */
     rayCount: 240,
+    /** Rays over the arc of the cone, and around the small halo. */
+    coneRayCount: 80,
+    haloRayCount: 96,
     /** Fraction of the flashlight radius that counts as lit (the soft edge does not). */
     litRadiusFraction: 0.85,
     /** How far the light enters wall tiles, so their faces are visible. */

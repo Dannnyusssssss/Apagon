@@ -10,9 +10,13 @@ export interface Flashlight {
   flickerPhase: number;
   /** Seconds the flicker keeps going after its cause ends. */
   flickerHold: number;
+  /** Where the beam points, in radians; turns smoothly toward where the player walks. */
+  aim: number;
+  /** Aim at the previous logic step, for render interpolation. */
+  prevAim: number;
 }
 
-export function createFlashlight(startsOn: boolean): Flashlight {
+export function createFlashlight(startsOn: boolean, aim = 0): Flashlight {
   return {
     on: startsOn,
     battery: 1,
@@ -20,10 +24,14 @@ export function createFlashlight(startsOn: boolean): Flashlight {
     flickerAmount: 0,
     flickerPhase: 0,
     flickerHold: 0,
+    aim,
+    prevAim: aim,
   };
 }
 
-export function resetFlashlight(flashlight: Flashlight, startsOn: boolean): void {
+export function resetFlashlight(flashlight: Flashlight, startsOn: boolean, aim = 0): void {
+  flashlight.aim = aim;
+  flashlight.prevAim = aim;
   flashlight.on = startsOn;
   flashlight.battery = 1;
   flashlight.strength = 1;

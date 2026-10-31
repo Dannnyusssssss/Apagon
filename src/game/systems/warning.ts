@@ -1,4 +1,4 @@
-import type { Vec2 } from '../../core/math';
+import { turnToward, type Vec2 } from '../../core/math';
 import type { Enemy } from '../enemy';
 import type { Player } from '../player';
 
@@ -28,12 +28,7 @@ export function enemyDirectionSystem(
   const dx = enemy.x - player.x;
   const dy = enemy.y - player.y;
   if (dx === 0 && dy === 0) return;
-  const current = Math.atan2(dir.y, dir.x);
-  let delta = Math.atan2(dy, dx) - current;
-  if (delta > Math.PI) delta -= Math.PI * 2;
-  else if (delta < -Math.PI) delta += Math.PI * 2;
-  const maxTurn = turnRate * stepSeconds;
-  const angle = current + Math.max(-maxTurn, Math.min(maxTurn, delta));
+  const angle = turnToward(Math.atan2(dir.y, dir.x), Math.atan2(dy, dx), turnRate * stepSeconds);
   dir.x = Math.cos(angle);
   dir.y = Math.sin(angle);
 }

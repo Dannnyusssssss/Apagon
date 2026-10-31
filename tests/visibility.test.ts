@@ -1,6 +1,14 @@
 import { describe, expect, it } from 'vitest';
 import { isWall, parseRoom } from '../src/game/rooms';
-import { castRay, castVisibility, hasLineOfSight, isLit } from '../src/game/visibility';
+import {
+  castCone,
+  castRay,
+  castVisibility,
+  hasLineOfSight,
+  isInCone,
+  isLit,
+  isLitCone,
+} from '../src/game/visibility';
 
 const T = 10;
 
@@ -75,5 +83,70 @@ describe('castVisibility', () => {
       const y = out[i + 1] ?? 0;
       expect(x > 40 && y < 40).toBe(false);
     }
+  });
+});
+
+const DEG = Math.PI / 180;
+const HALF = 35 * DEG;
+
+describe('isInCone', () => {
+  it('accepts what is ahead and rejects what is behind or to the side', () => {
+    expect(isInCone(10, 0, 0, HALF)).toBe(true);
+    expect(isInCone(-10, 0, 0, HALF)).toBe(false);
+    expect(isInCone(0, 10, 0, HALF)).toBe(false);
+    expect(isInCone(0, 10, Math.PI / 2, HALF)).toBe(true);
+  });
+
+  it('includes the exact edge and rejects just outside, on both sides', () => {
+    for (const side of [1, -1]) {
+      const edge = side * 34.999 * DEG;
+      const out = side * 35.5 * DEG;
+      expect(isInCone(Math.cos(edge), Math.sin(edge), 0, HALF)).toBe(true);
+      expect(isInCone(Math.cos(out), Math.sin(out), 0, HALF)).toBe(false);
+    }
+  });
+
+  it('works across the -PI/PI seam', () => {
+    // Aiming left: points slightly above and below the left are both inside.
+    expect(isInCone(-10, 1, Math.PI, HALF)).toBe(true);
+    expect(isInCone(-10, -1, -Math.PI, HALF)).toBe(true);
+  });
+});
+
+describe('isLitCone', () => {
+  it('needs the light on, the point ahead, in range and no wall in between', () => {
+    // From the open bottom row, aiming right.
+    expect(isLitCone(ROOM, true, 35, 45, 30, 0, HALF, 55, 45)).toBe(true);
+    expect(isLitCone(ROOM, false, 35, 45, 30, 0, HALF, 55, 45)).toBe(false);
+    expect(isLitCone(ROOM, true, 35, 45, 30, 0, HALF, 15, 45)).toBe(false);
+    expect(isLitCone(ROOM, true, 35, 45, 15, 0, HALF, 55, 45)).toBe(false);
+    expect(isLitCone(ROOM, true, 15, 15, 60, 0, HALF, 55, 15)).toBe(false);
+  });
+});
+
+describe('castCone', () => {
+  it('starts at the origin and spreads the rays only over the arc', () => {
+    const out = new Float32Array(10 * 2);
+    const half = 45 * DEG;
+    castCone(ROOM, 35, 45, 30, 0, half, 2, out);
+    expect(out[0]).toBe(35);
+    expect(out[1]).toBe(45);
+    for (let i = 1; i < 10; i++) {
+      const dx = (out[i * 2] ?? 0) - 35;
+      const dy = (out[i * 2 + 1] ?? 0) - 45;
+      expect(Math.hypot(dx, dy)).toBeLessThanOrEqual(30 + 1e-4);
+      expect(Math.abs(Math.atan2(dy, dx))).toBeLessThanOrEqual(half + 1e-6);
+    }
+    // The first and last rays sit on the edges of the arc.
+    expect(Math.atan2((out[3] ?? 0) - 45, (out[2] ?? 0) - 35)).toBeCloseTo(-half, 5);
+    expect(Math.atan2((out[19] ?? 0) - 45, (out[18] ?? 0) - 35)).toBeCloseTo(half, 5);
+  });
+
+  it('stops rays at walls, entering them a little', () => {
+    const out = new Float32Array(10 * 2);
+    // Aiming up into the wall above (it ends at y = 40); 9 rays, the middle one straight up.
+    castCone(ROOM, 35, 45, 30, -Math.PI / 2, 45 * DEG, 2, out);
+    expect(out[10]).toBeCloseTo(35, 4);
+    expect(out[11]).toBeCloseTo(38, 4);
   });
 });

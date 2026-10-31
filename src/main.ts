@@ -22,7 +22,7 @@ import type { Vec2 } from './core/math';
 import { BALANCE } from './data/balance';
 import { HOUSE } from './data/rooms';
 import { clearEvents } from './game/events';
-import { createWorld, resetWorld, stepWorld, type StepInput } from './game/world';
+import { createWorld, resetWorld, setLightMode, stepWorld, type StepInput } from './game/world';
 import { Renderer } from './render/renderer';
 import { getBrowserStorage, isNewBest, loadSave, writeSave } from './save/storage';
 import { DebugOverlay } from './ui/debugOverlay';
@@ -52,6 +52,7 @@ const world = createWorld(HOUSE, {
   seed,
   reduceFlicker: chosenReduceFlicker ?? prefersReducedMotion,
   muted: save.muted,
+  classicLight: save.classicLight,
   godMode: debugParams.god,
 });
 const sfx = new Sfx();
@@ -85,10 +86,17 @@ const screens = new Screens(container, {
     persist();
   },
   onMute: setMuted,
+  onClassicLight: (checked) => {
+    // Applies at once, even from the pause menu: shape and difficulty.
+    setLightMode(world, checked);
+    screens.setClassicLight(checked);
+    persist();
+  },
 });
 screens.setReduceFlicker(world.settings.reduceFlicker);
 applyReduceMotion(world.settings.reduceFlicker);
 screens.setMuted(world.settings.muted);
+screens.setClassicLight(world.settings.classicLight);
 screens.showStart(false);
 
 /** "Reduce flicker" also stops the menu animations. */
@@ -100,6 +108,7 @@ function persist(): void {
   writeSave(storage, {
     reduceFlicker: chosenReduceFlicker,
     muted: world.settings.muted,
+    classicLight: world.settings.classicLight,
     bestTimeSeconds: bestTime,
   });
 }

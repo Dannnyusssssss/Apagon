@@ -17,7 +17,7 @@ const IDLE: StepInput = { axisX: 0, axisY: 0, toggleFlashlight: false, interact:
 const PRESS_E: StepInput = { axisX: 0, axisY: 0, toggleFlashlight: false, interact: true };
 
 function world(): World {
-  return createWorld(ROOM, { seed: 1, reduceFlicker: false });
+  return createWorld(ROOM, { seed: 1, reduceFlicker: false, classicLight: true });
 }
 
 /** Puts the player at the center of a tile and runs one idle step to update prompts. */

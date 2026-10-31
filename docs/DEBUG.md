@@ -6,7 +6,7 @@ Cualquier valor inválido se ignora. Un indicador se activa si aparece sin valor
 
 | Parámetro | Efecto |
 |---|---|
-| `?debug` | Muestra un panel arriba a la derecha con FPS, pasos lógicos por segundo, estado de la partida, habitación y casilla del jugador, batería, estado del enemigo, cercanía, llaves y ajustes. Se actualiza 4 veces por segundo. |
+| `?debug` | Muestra un panel arriba a la derecha con FPS, pasos lógicos por segundo, estado de la partida, habitación y casilla del jugador, batería, modo de linterna (cono o clásica), ángulo del haz, velocidad y estado del enemigo, cercanía, llaves y ajustes. Se actualiza 4 veces por segundo. |
 | `?god` | El enemigo no puede alcanzar al jugador. Todo lo demás funciona igual. |
 | `?seed=N` | Fija la semilla (entero de 0 a 4294967295). Decide en qué punto `E` del mapa empieza el enemigo, así una partida se puede repetir. |
 

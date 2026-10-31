@@ -2,7 +2,7 @@
 export const TEXTS = {
   start: {
     goal: 'Estás a oscuras. Encuentra las llaves y sal por la puerta antes de que algo te alcance.',
-    light: 'La luz lo detiene un rato, pero gasta batería. Busca pilas.',
+    light: 'Apunta la luz hacia él: lo detiene un rato, pero gasta batería. Busca pilas.',
     /** Controls shown as key caps: main keys, optional alternative keys, and what they do. */
     controls: [
       { keys: ['W', 'A', 'S', 'D'], alt: ['Flechas'], label: 'Moverse' },
@@ -27,6 +27,7 @@ export const TEXTS = {
   settings: {
     reduceFlicker: 'Reducir parpadeo',
     mute: 'Silenciar sonido (M)',
+    classicLight: 'Linterna clásica (más fácil)',
   },
   defeat: {
     title: 'Te ha alcanzado',

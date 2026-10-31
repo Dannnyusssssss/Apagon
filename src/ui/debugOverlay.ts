@@ -41,6 +41,7 @@ export class DebugOverlay {
       `state ${state} · world ${world.status} · t ${world.elapsedSeconds.toFixed(1)}s`,
       `area ${areaAt(room, col, row) ?? '-'} · tile ${String(col)},${String(row)}`,
       `battery ${(flashlight.battery * 100).toFixed(0)}% · light ${flashlight.on ? 'on' : 'off'} · strength ${flashlight.strength.toFixed(2)}`,
+      `mode ${world.settings.classicLight ? 'classic' : 'cone'} · aim ${String(Math.round((flashlight.aim * 180) / Math.PI))}° · enemy speed ${String(enemy.speed)}`,
       `enemy lit ${String(enemy.lit)} · freeze ${enemy.freezeTimer.toFixed(2)} · start ${enemy.startTimer.toFixed(2)}`,
       `near ${world.enemyNear.toFixed(2)} · keys ${String(world.inventory.keys)}/${String(world.inventory.keysRequired)}`,
       `god ${String(world.settings.godMode)} · muted ${String(world.settings.muted)}`,

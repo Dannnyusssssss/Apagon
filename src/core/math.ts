@@ -24,3 +24,24 @@ export function limitToUnit(x: number, y: number, out: Vec2): Vec2 {
   }
   return out;
 }
+
+const TURN = Math.PI * 2;
+
+/** Signed difference from angle `from` to `to` the short way round, in -PI..PI. */
+export function angleDelta(from: number, to: number): number {
+  let delta = (to - from) % TURN;
+  if (delta > Math.PI) delta -= TURN;
+  else if (delta < -Math.PI) delta += TURN;
+  return delta;
+}
+
+/** Turns `current` toward `target` by at most `maxTurn` radians, the short way round. */
+export function turnToward(current: number, target: number, maxTurn: number): number {
+  const delta = angleDelta(current, target);
+  return current + clamp(delta, -maxTurn, maxTurn);
+}
+
+/** Interpolates between two angles the short way round. */
+export function lerpAngle(a: number, b: number, t: number): number {
+  return a + angleDelta(a, b) * t;
+}

@@ -17,7 +17,7 @@ function input(partial: Partial<StepInput> = {}): StepInput {
 }
 
 function world(godMode = false): World {
-  const w = createWorld(ROOM, { seed: 1, reduceFlicker: false, godMode });
+  const w = createWorld(ROOM, { seed: 1, reduceFlicker: false, classicLight: true, godMode });
   w.enemy.startTimer = 1e9;
   return w;
 }

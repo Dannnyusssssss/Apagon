@@ -8,6 +8,7 @@ import {
   updateDistanceField,
 } from '../src/game/pathfinding';
 import { keysRequired } from '../src/game/items';
+import { lightModeProfile } from '../src/game/lightModes';
 import { areaAt, parseRoom, type RoomGrid, type TileCoord } from '../src/game/rooms';
 import { createWorld, type World } from '../src/game/world';
 
@@ -99,12 +100,16 @@ describe('house map data', () => {
     expect(active(world(77))).toBe(active(world(77)));
   });
 
-  it('lets every run fit in the battery, with margin', () => {
+  it.each([
+    ['cone', false],
+    ['classic light', true],
+  ])('lets every run fit in the battery, with margin (%s)', (_name, classicLight) => {
     const exit = doorApproach(room)[0];
     if (!exit) throw new Error('door has no approach');
     const T = room.tileSize;
-    const charge = 1 + room.batteryCount * BALANCE.battery.rechargeAmount;
-    const lightSeconds = BALANCE.battery.drainSeconds * charge;
+    const battery = lightModeProfile(classicLight).battery;
+    const charge = 1 + room.batteryCount * battery.rechargeAmount;
+    const lightSeconds = battery.drainSeconds * charge;
     let shortest = Infinity;
     let longest = 0;
     for (let seed = 1; seed <= 60; seed++) {

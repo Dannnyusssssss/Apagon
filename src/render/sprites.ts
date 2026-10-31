@@ -42,6 +42,59 @@ export function createWarmGlowSprite(): HTMLCanvasElement {
   return canvas;
 }
 
+/** Angles of the soft side edges of the cone beam, in radians from its axis. */
+export interface ConeEdges {
+  /** Full light up to this angle. */
+  readonly inner: number;
+  /** No light from this angle on. */
+  readonly outer: number;
+  /** Hard edge used when the browser has no conic gradients. */
+  readonly fallback: number;
+}
+
+/**
+ * Cone version of a round light sprite, pointing right (angle 0): the radial
+ * fade times a side fade from `inner` to `outer`. Built once with gradients only.
+ */
+function coneFrom(round: HTMLCanvasElement, edges: ConeEdges): HTMLCanvasElement {
+  const [canvas, ctx] = createCanvas(LIGHT_SPRITE_SIZE);
+  const r = LIGHT_SPRITE_SIZE / 2;
+  ctx.drawImage(round, 0, 0);
+  ctx.globalCompositeOperation = 'destination-in';
+  if (typeof ctx.createConicGradient === 'function') {
+    // Fraction f of the turn is the angle -PI + 2 PI f, so the beam axis sits at 0.5.
+    const inner = edges.inner / (Math.PI * 2);
+    const outer = edges.outer / (Math.PI * 2);
+    const sides = ctx.createConicGradient(-Math.PI, r, r);
+    sides.addColorStop(0, 'rgba(0, 0, 0, 0)');
+    sides.addColorStop(0.5 - outer, 'rgba(0, 0, 0, 0)');
+    sides.addColorStop(0.5 - inner, 'rgba(0, 0, 0, 1)');
+    sides.addColorStop(0.5 + inner, 'rgba(0, 0, 0, 1)');
+    sides.addColorStop(0.5 + outer, 'rgba(0, 0, 0, 0)');
+    sides.addColorStop(1, 'rgba(0, 0, 0, 0)');
+    ctx.fillStyle = sides;
+    ctx.fillRect(0, 0, LIGHT_SPRITE_SIZE, LIGHT_SPRITE_SIZE);
+  } else {
+    ctx.fillStyle = '#000';
+    ctx.beginPath();
+    ctx.moveTo(r, r);
+    ctx.arc(r, r, r, -edges.fallback, edges.fallback);
+    ctx.closePath();
+    ctx.fill();
+  }
+  return canvas;
+}
+
+/** Darkness cut-out for the cone beam (see `createLightMaskSprite`). */
+export function createConeMaskSprite(edges: ConeEdges): HTMLCanvasElement {
+  return coneFrom(createLightMaskSprite(), edges);
+}
+
+/** Warm tint for the cone beam (see `createWarmGlowSprite`). */
+export function createConeGlowSprite(edges: ConeEdges): HTMLCanvasElement {
+  return coneFrom(createWarmGlowSprite(), edges);
+}
+
 /** Body radius inside the player sprite box, as a fraction of half the box. */
 const PLAYER_BODY = 0.92;
 

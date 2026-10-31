@@ -42,7 +42,12 @@ describe('parseSave', () => {
       settings: { reduceFlicker: true },
       bestTimeSeconds: 42.5,
     });
-    expect(parseSave(raw)).toEqual({ reduceFlicker: true, muted: false, bestTimeSeconds: 42.5 });
+    expect(parseSave(raw)).toEqual({
+      reduceFlicker: true,
+      muted: false,
+      classicLight: false,
+      bestTimeSeconds: 42.5,
+    });
   });
 
   it('returns defaults for missing or corrupt data', () => {
@@ -56,12 +61,12 @@ describe('parseSave', () => {
       parseSave(
         JSON.stringify({ version: 1, settings: { reduceFlicker: 'yes' }, bestTimeSeconds: 30 }),
       ),
-    ).toEqual({ reduceFlicker: null, muted: false, bestTimeSeconds: 30 });
+    ).toEqual({ reduceFlicker: null, muted: false, classicLight: false, bestTimeSeconds: 30 });
     expect(
       parseSave(
         JSON.stringify({ version: 1, settings: { reduceFlicker: false }, bestTimeSeconds: -5 }),
       ),
-    ).toEqual({ reduceFlicker: false, muted: false, bestTimeSeconds: null });
+    ).toEqual({ reduceFlicker: false, muted: false, classicLight: false, bestTimeSeconds: null });
     expect(parseSave(JSON.stringify({ version: 1, settings: [], bestTimeSeconds: '30' }))).toEqual(
       defaultSave(),
     );
@@ -72,7 +77,7 @@ describe('parseSave', () => {
   });
 
   it('round-trips through serializeSave', () => {
-    const data = { reduceFlicker: false, muted: true, bestTimeSeconds: 12.3 };
+    const data = { reduceFlicker: false, muted: true, classicLight: true, bestTimeSeconds: 12.3 };
     expect(parseSave(serializeSave(data))).toEqual(data);
     expect(parseSave(serializeSave(defaultSave()))).toEqual(defaultSave());
   });
@@ -88,18 +93,28 @@ describe('muted setting', () => {
       parseSave(
         JSON.stringify({ version: 1, settings: { reduceFlicker: true }, bestTimeSeconds: 20 }),
       ),
-    ).toEqual({ reduceFlicker: true, muted: false, bestTimeSeconds: 20 });
+    ).toEqual({ reduceFlicker: true, muted: false, classicLight: false, bestTimeSeconds: 20 });
   });
 });
 
 describe('loadSave and writeSave', () => {
   it('writes only the game key and reads it back', () => {
     const storage = new MemoryStorage();
-    expect(writeSave(storage, { reduceFlicker: true, muted: true, bestTimeSeconds: 99 })).toBe(
-      true,
-    );
+    expect(
+      writeSave(storage, {
+        reduceFlicker: true,
+        muted: true,
+        classicLight: false,
+        bestTimeSeconds: 99,
+      }),
+    ).toBe(true);
     expect([...storage.data.keys()]).toEqual(['apagon:v1']);
-    expect(loadSave(storage)).toEqual({ reduceFlicker: true, muted: true, bestTimeSeconds: 99 });
+    expect(loadSave(storage)).toEqual({
+      reduceFlicker: true,
+      muted: true,
+      classicLight: false,
+      bestTimeSeconds: 99,
+    });
   });
 
   it('survives corrupt stored data', () => {
@@ -123,5 +138,37 @@ describe('isNewBest', () => {
     expect(isNewBest(60, 50)).toBe(false);
     expect(isNewBest(50, 50)).toBe(false);
     expect(isNewBest(Number.NaN, null)).toBe(false);
+  });
+});
+
+describe('classic light setting', () => {
+  it('is off (cone) by default and in older saves', () => {
+    expect(defaultSave().classicLight).toBe(false);
+    expect(parseSave(JSON.stringify({ version: 1, settings: { muted: true } })).classicLight).toBe(
+      false,
+    );
+  });
+
+  it('reads it field by field', () => {
+    const read = (value: unknown): boolean =>
+      parseSave(
+        JSON.stringify({ version: 1, settings: { classicLight: value }, bestTimeSeconds: 5 }),
+      ).classicLight;
+    expect(read(true)).toBe(true);
+    expect(read(false)).toBe(false);
+    expect(read('true')).toBe(false);
+    expect(read(1)).toBe(false);
+    expect(read(null)).toBe(false);
+    // A bad value does not spoil the other fields.
+    expect(
+      parseSave(JSON.stringify({ version: 1, settings: { classicLight: 'x' }, bestTimeSeconds: 5 }))
+        .bestTimeSeconds,
+    ).toBe(5);
+  });
+
+  it('is written and read back', () => {
+    const storage = new MemoryStorage();
+    writeSave(storage, { ...defaultSave(), classicLight: true });
+    expect(loadSave(storage).classicLight).toBe(true);
   });
 });

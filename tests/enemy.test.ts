@@ -28,7 +28,7 @@ const AROUND: RoomDef = {
 };
 
 function world(room: RoomDef, lightOn: boolean): World {
-  const w = createWorld(room, { seed: SEED, reduceFlicker: false });
+  const w = createWorld(room, { seed: SEED, reduceFlicker: false, classicLight: true });
   w.flashlight.on = lightOn;
   return w;
 }
@@ -190,8 +190,8 @@ describe('enemy start', () => {
   };
 
   it('is the same for the same seed', () => {
-    const a = createWorld(THREE_STARTS, { seed: 42, reduceFlicker: false });
-    const b = createWorld(THREE_STARTS, { seed: 42, reduceFlicker: false });
+    const a = createWorld(THREE_STARTS, { seed: 42, reduceFlicker: false, classicLight: true });
+    const b = createWorld(THREE_STARTS, { seed: 42, reduceFlicker: false, classicLight: true });
     expect(a.enemy.x).toBe(b.enemy.x);
     expect(a.enemy.y).toBe(b.enemy.y);
   });
@@ -199,7 +199,7 @@ describe('enemy start', () => {
   it('uses every marked start across seeds', () => {
     const starts = new Set<string>();
     for (let seed = 1; seed <= 50; seed++) {
-      const w = createWorld(THREE_STARTS, { seed, reduceFlicker: false });
+      const w = createWorld(THREE_STARTS, { seed, reduceFlicker: false, classicLight: true });
       starts.add(`${String(w.enemy.x)},${String(w.enemy.y)}`);
     }
     expect(starts.size).toBe(3);

@@ -5,7 +5,8 @@ export interface Enemy {
   prevX: number;
   prevY: number;
   readonly radius: number;
-  readonly speed: number;
+  /** Base speed; set by the light mode (classic or cone). */
+  speed: number;
   /** True while the flashlight touches the enemy. */
   lit: boolean;
   /** Seconds left standing still after leaving the light. */

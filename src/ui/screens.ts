@@ -154,6 +154,7 @@ export interface ScreenHandlers {
   onRetry(): void;
   onReduceFlicker(checked: boolean): void;
   onMute(checked: boolean): void;
+  onClassicLight(checked: boolean): void;
 }
 
 /** Start, pause, victory and defeat screens. Only "Retry" on the end screens. */
@@ -165,6 +166,7 @@ export class Screens {
   private readonly all: readonly Screen[];
   private readonly reduceBoxes: HTMLInputElement[] = [];
   private readonly muteBoxes: HTMLInputElement[] = [];
+  private readonly classicBoxes: HTMLInputElement[] = [];
   private readonly victoryTime: HTMLParagraphElement;
   private readonly victoryBest: HTMLParagraphElement;
   private readonly victoryNewBest: HTMLParagraphElement;
@@ -208,6 +210,9 @@ export class Screens {
       screen.toggle(row, TEXTS.settings.reduceFlicker, 'flicker', handlers.onReduceFlicker),
     );
     this.muteBoxes.push(screen.toggle(row, TEXTS.settings.mute, 'sound', handlers.onMute));
+    this.classicBoxes.push(
+      screen.toggle(row, TEXTS.settings.classicLight, 'flashlight', handlers.onClassicLight),
+    );
   }
 
   setReduceFlicker(checked: boolean): void {
@@ -216,6 +221,10 @@ export class Screens {
 
   setMuted(checked: boolean): void {
     for (const box of this.muteBoxes) box.checked = checked;
+  }
+
+  setClassicLight(checked: boolean): void {
+    for (const box of this.classicBoxes) box.checked = checked;
   }
 
   /** Focus is not moved on first load, so the page does not steal focus inside a frame. */

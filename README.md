@@ -10,8 +10,8 @@ Estás atrapado en una casa a oscuras. Solo ves lo que alcanza tu linterna. Encu
 
 - La casa tiene tres habitaciones: entrada, salón y sótano. En cada una hay **una llave**; cambian de sitio en cada partida.
 - Con las tres llaves, abre la **puerta de salida** del sótano.
-- Algo te persigue en la oscuridad. **La luz lo detiene un rato**, pero se acostumbra a ella, y a oscuras es más rápido.
-- La linterna **gasta batería**: el círculo de luz se estrecha al gastarse. Busca **pilas** para recargarla.
+- Algo te persigue en la oscuridad. La linterna alumbra **hacia donde caminas**: si le apuntas, **la luz lo detiene un rato**, pero se acostumbra a ella, y a oscuras es más rápido. Lo que llega por la espalda no se detiene.
+- La linterna **gasta batería**: su alcance se estrecha al gastarse. Busca **pilas** para recargarla.
 
 ## Controles (solo teclado)
 
@@ -30,6 +30,7 @@ Si Shift abre un aviso del sistema, usa F.
 
 - **Reducir parpadeo** (en el inicio y en la pausa): quita el parpadeo suave de la linterna y las animaciones del menú. Se activa solo si el sistema tiene activado "reducir movimiento". Aun sin activarlo, ningún cambio de luz supera 3 por segundo ni apaga la pantalla.
 - **Jugable sin sonido:** la batería baja y la cercanía del enemigo también se muestran en pantalla.
+- **Linterna clásica (más fácil)** (en el inicio y en la pausa): cambia el haz por un círculo de luz alrededor del personaje, que detiene al enemigo venga de donde venga. Se guarda en el navegador.
 - **Sonido posicional:** con auriculares se oye de qué lado y a qué distancia está el enemigo, y suena apagado si hay paredes de por medio. Cuando está cerca, el borde de la pantalla se oscurece más por el lado del que viene.
 - Se juega entero con teclado. El juego se pausa solo al perder el foco.
 

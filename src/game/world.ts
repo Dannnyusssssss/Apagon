@@ -6,6 +6,7 @@ import { lightRadius } from './battery';
 import { createEnemy, placeEnemy, type Enemy } from './enemy';
 import { clearEvents, createEvents, type WorldEvents } from './events';
 import { createFlashlight, resetFlashlight, type Flashlight } from './flashlight';
+import { lightModeProfile } from './lightModes';
 import { playerMood, type Mood } from './mood';
 import {
   createInventory,
@@ -26,7 +27,7 @@ import { parseRoom, type RoomGrid } from './rooms';
 import { batterySystem } from './systems/battery';
 import { catchSystem } from './systems/catch';
 import { enemySystem } from './systems/enemy';
-import { flashlightSystem } from './systems/flashlight';
+import { aimSystem, flashlightSystem } from './systems/flashlight';
 import { flickerSystem } from './systems/flicker';
 import { createInteractState, interactSystem, type InteractState } from './systems/interact';
 import { movementSystem } from './systems/movement';
@@ -42,6 +43,8 @@ export interface WorldSettings {
   muted: boolean;
   /** Debug only: the enemy cannot catch the player. */
   godMode: boolean;
+  /** Classic round light (easier) instead of the cone. Change it with `setLightMode`. */
+  classicLight: boolean;
 }
 
 export interface WorldOptions {
@@ -50,6 +53,7 @@ export interface WorldOptions {
   reduceFlicker: boolean;
   muted?: boolean;
   godMode?: boolean;
+  classicLight?: boolean;
 }
 
 export interface World {
@@ -102,6 +106,7 @@ export function createWorld(roomDef: RoomDef, options: WorldOptions = DEFAULT_OP
       reduceFlicker: options.reduceFlicker,
       muted: options.muted ?? false,
       godMode: options.godMode ?? false,
+      classicLight: options.classicLight ?? false,
     },
     events: createEvents(),
     status: 'playing',
@@ -129,7 +134,12 @@ export function resetWorld(world: World): void {
   if (!spawn) throw new Error('Room has no enemy spawn');
   placeEnemy(enemy, (spawn.col + 0.5) * t, (spawn.row + 0.5) * t, BALANCE.enemy.startDelaySeconds);
 
-  resetFlashlight(world.flashlight, BALANCE.flashlight.startsOn);
+  resetFlashlight(
+    world.flashlight,
+    BALANCE.flashlight.startsOn,
+    Math.atan2(player.facingY, player.facingX),
+  );
+  setLightMode(world, world.settings.classicLight);
   placeItems(room, world.items, world.rng);
   world.inventory.keys = 0;
   world.interact.prompt = 'none';
@@ -141,6 +151,12 @@ export function resetWorld(world: World): void {
   snapEnemyDirection(player, enemy, world.enemyDirection);
   world.mood = 'calm';
   clearEvents(world.events);
+}
+
+/** Switches between the cone and the classic circle, with the difficulty of each. Works mid-run. */
+export function setLightMode(world: World, classicLight: boolean): void {
+  world.settings.classicLight = classicLight;
+  world.enemy.speed = lightModeProfile(classicLight).enemySpeed;
 }
 
 /** Current flashlight radius, shrinking with the battery charge. */
@@ -162,10 +178,12 @@ export function stepWorld(world: World, input: StepInput, stepSeconds: number): 
     player.prevY = player.y;
     enemy.prevX = enemy.x;
     enemy.prevY = enemy.y;
+    flashlight.prevAim = flashlight.aim;
     return;
   }
 
   const { events } = world;
+  const mode = lightModeProfile(world.settings.classicLight);
   const wasOn = flashlight.on;
   const wasLit = enemy.lit;
   const startX = player.x;
@@ -175,10 +193,11 @@ export function stepWorld(world: World, input: StepInput, stepSeconds: number): 
   flashlightSystem(flashlight, input.toggleFlashlight);
   if (flashlight.on !== wasOn) events.lightToggled++;
   const hadCharge = flashlight.battery > 0;
-  batterySystem(flashlight, BALANCE.battery, stepSeconds);
+  batterySystem(flashlight, mode.battery, stepSeconds);
   if (hadCharge && flashlight.battery === 0) events.batteryEmptied++;
   movementSystem(room, player, input.axisX, input.axisY, stepSeconds);
   events.moving = player.x !== startX || player.y !== startY;
+  aimSystem(flashlight, player, BALANCE.flashlight.turnRate, stepSeconds);
   const result = interactSystem(
     room,
     player,
@@ -207,9 +226,17 @@ export function stepWorld(world: World, input: StepInput, stepSeconds: number): 
     Math.floor(player.y / room.tileSize),
   );
   const litRadius = currentLightRadius(flashlight) * BALANCE.visibility.litRadiusFraction;
-  visibilitySystem(room, flashlight, player, enemy, litRadius);
+  visibilitySystem(
+    room,
+    flashlight,
+    player,
+    enemy,
+    litRadius,
+    world.settings.classicLight,
+    BALANCE.flashlight.coneHalfAngle,
+  );
   if (enemy.lit && !wasLit) events.enemyLit++;
-  enemySystem(room, field, enemy, player, flashlight.on, BALANCE.enemy, stepSeconds);
+  enemySystem(room, field, enemy, player, flashlight.on, mode.enemy, stepSeconds);
   flickerSystem(flashlight, enemy.lit, world.settings.reduceFlicker, BALANCE.flicker, stepSeconds);
   world.enemyNear = enemyNearSystem(player, enemy, BALANCE.warning.enemyNearDistance);
   enemyDirectionSystem(

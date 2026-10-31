@@ -11,6 +11,8 @@ export interface SaveData {
   reduceFlicker: boolean | null;
   /** Sound off. Missing in older saves: sound on. */
   muted: boolean;
+  /** Classic round light (easier) instead of the cone. Missing in older saves: cone. */
+  classicLight: boolean;
   /** Best winning time in seconds, or null if the game was never won. */
   bestTimeSeconds: number | null;
 }
@@ -22,7 +24,7 @@ export interface StorageLike {
 }
 
 export function defaultSave(): SaveData {
-  return { reduceFlicker: null, muted: false, bestTimeSeconds: null };
+  return { reduceFlicker: null, muted: false, classicLight: false, bestTimeSeconds: null };
 }
 
 /**
@@ -48,6 +50,9 @@ export function parseSave(raw: string | null): SaveData {
   if (isRecord(settings) && typeof settings['muted'] === 'boolean') {
     data.muted = settings['muted'];
   }
+  if (isRecord(settings) && typeof settings['classicLight'] === 'boolean') {
+    data.classicLight = settings['classicLight'];
+  }
   const best = parsed['bestTimeSeconds'];
   if (isValidTime(best)) data.bestTimeSeconds = best;
   return data;
@@ -57,6 +62,7 @@ export function serializeSave(data: SaveData): string {
   const settings: Record<string, boolean> = {};
   if (data.reduceFlicker !== null) settings['reduceFlicker'] = data.reduceFlicker;
   settings['muted'] = data.muted;
+  settings['classicLight'] = data.classicLight;
   return JSON.stringify({
     version: SAVE_VERSION,
     settings,
