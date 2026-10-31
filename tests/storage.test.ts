@@ -42,7 +42,7 @@ describe('parseSave', () => {
       settings: { reduceFlicker: true },
       bestTimeSeconds: 42.5,
     });
-    expect(parseSave(raw)).toEqual({ reduceFlicker: true, bestTimeSeconds: 42.5 });
+    expect(parseSave(raw)).toEqual({ reduceFlicker: true, muted: false, bestTimeSeconds: 42.5 });
   });
 
   it('returns defaults for missing or corrupt data', () => {
@@ -56,12 +56,12 @@ describe('parseSave', () => {
       parseSave(
         JSON.stringify({ version: 1, settings: { reduceFlicker: 'yes' }, bestTimeSeconds: 30 }),
       ),
-    ).toEqual({ reduceFlicker: null, bestTimeSeconds: 30 });
+    ).toEqual({ reduceFlicker: null, muted: false, bestTimeSeconds: 30 });
     expect(
       parseSave(
         JSON.stringify({ version: 1, settings: { reduceFlicker: false }, bestTimeSeconds: -5 }),
       ),
-    ).toEqual({ reduceFlicker: false, bestTimeSeconds: null });
+    ).toEqual({ reduceFlicker: false, muted: false, bestTimeSeconds: null });
     expect(parseSave(JSON.stringify({ version: 1, settings: [], bestTimeSeconds: '30' }))).toEqual(
       defaultSave(),
     );
@@ -72,18 +72,34 @@ describe('parseSave', () => {
   });
 
   it('round-trips through serializeSave', () => {
-    const data = { reduceFlicker: false, bestTimeSeconds: 12.3 };
+    const data = { reduceFlicker: false, muted: true, bestTimeSeconds: 12.3 };
     expect(parseSave(serializeSave(data))).toEqual(data);
     expect(parseSave(serializeSave(defaultSave()))).toEqual(defaultSave());
+  });
+});
+
+describe('muted setting', () => {
+  it('reads it field by field and defaults to sound on', () => {
+    expect(parseSave(JSON.stringify({ version: 1, settings: { muted: true } })).muted).toBe(true);
+    expect(parseSave(JSON.stringify({ version: 1, settings: { muted: 'yes' } })).muted).toBe(false);
+    expect(parseSave(JSON.stringify({ version: 1, settings: { muted: 1 } })).muted).toBe(false);
+    // Older saves without the field keep their other values.
+    expect(
+      parseSave(
+        JSON.stringify({ version: 1, settings: { reduceFlicker: true }, bestTimeSeconds: 20 }),
+      ),
+    ).toEqual({ reduceFlicker: true, muted: false, bestTimeSeconds: 20 });
   });
 });
 
 describe('loadSave and writeSave', () => {
   it('writes only the game key and reads it back', () => {
     const storage = new MemoryStorage();
-    expect(writeSave(storage, { reduceFlicker: true, bestTimeSeconds: 99 })).toBe(true);
+    expect(writeSave(storage, { reduceFlicker: true, muted: true, bestTimeSeconds: 99 })).toBe(
+      true,
+    );
     expect([...storage.data.keys()]).toEqual(['apagon:v1']);
-    expect(loadSave(storage)).toEqual({ reduceFlicker: true, bestTimeSeconds: 99 });
+    expect(loadSave(storage)).toEqual({ reduceFlicker: true, muted: true, bestTimeSeconds: 99 });
   });
 
   it('survives corrupt stored data', () => {

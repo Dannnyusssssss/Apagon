@@ -3,7 +3,8 @@ export const TEXTS = {
   start: {
     goal: 'Estás a oscuras. Encuentra las llaves y sal por la puerta antes de que algo te alcance.',
     light: 'La luz lo detiene, pero gasta batería. Busca pilas.',
-    controls: 'WASD o flechas: moverse · Shift o F: linterna · E: interactuar · Esc o P: pausa',
+    controls:
+      'WASD o flechas: moverse · Shift o F: linterna · E: interactuar · Esc o P: pausa · M: sonido',
     shiftHint: 'Si Shift abre un aviso del sistema, usa F.',
     contentNote:
       'Aviso: oscuridad, tensión y cambios suaves de luz. Sin sangre ni imágenes explícitas.',
@@ -16,6 +17,7 @@ export const TEXTS = {
   },
   settings: {
     reduceFlicker: 'Reducir parpadeo',
+    mute: 'Silenciar sonido (M)',
   },
   defeat: {
     title: 'Te ha alcanzado',
@@ -35,6 +37,8 @@ export const TEXTS = {
     batteryEmpty: 'Sin batería',
     keys: 'Llaves ',
     enemyNear: 'Algo se acerca',
+    soundOn: 'Sonido: sí (M)',
+    soundOff: 'Sonido: no (M)',
     pickKey: 'E: recoger llave',
     pickBattery: 'E: recoger pila',
     openDoor: 'E: abrir la puerta',

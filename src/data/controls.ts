@@ -8,6 +8,7 @@ export const CONTROLS = {
   interact: ['KeyE'],
   /** Escape keeps its browser meaning too: it pauses and focus moves to the pause menu. */
   pause: ['Escape', 'KeyP'],
+  mute: ['KeyM'],
   /** Only these keys get preventDefault while playing (avoid page scroll). */
   preventDefault: ['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Space'],
 } as const;

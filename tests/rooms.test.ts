@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { createCamera, followTarget } from '../src/core/camera';
-import { TEST_ROOM } from '../src/data/rooms';
-import { isWall, parseRoom, tileAt, TILE_DOOR } from '../src/game/rooms';
+import { HOUSE } from '../src/data/rooms';
+import { areaAt, isWall, parseRoom, tileAt, TILE_DOOR } from '../src/game/rooms';
 
 describe('parseRoom', () => {
   it('reads size, spawn, items and door', () => {
@@ -32,6 +32,19 @@ describe('parseRoom', () => {
     ]);
   });
 
+  it('reads named areas and rejects areas outside the map', () => {
+    const layout = ['######', '#PK.E#', '#D####'];
+    const room = parseRoom(
+      { id: 'r', layout, areas: [{ id: 'a', col: 1, row: 1, cols: 2, rows: 1 }] },
+      10,
+    );
+    expect(areaAt(room, 1, 1)).toBe('a');
+    expect(areaAt(room, 3, 1)).toBeNull();
+    expect(() =>
+      parseRoom({ id: 'r', layout, areas: [{ id: 'b', col: 4, row: 1, cols: 3, rows: 1 }] }, 10),
+    ).toThrow();
+  });
+
   it('rejects malformed layouts', () => {
     const bad = (layout: string[]) => () => parseRoom({ id: 'r', layout }, 10);
     expect(bad([])).toThrow();
@@ -47,7 +60,7 @@ describe('parseRoom', () => {
   });
 
   it('the test room is valid and closed by walls', () => {
-    const room = parseRoom(TEST_ROOM, 48);
+    const room = parseRoom(HOUSE, 48);
     expect(room.keys.length).toBe(3);
     expect(room.batteries.length).toBeGreaterThan(0);
     for (let col = 0; col < room.cols; col++) {

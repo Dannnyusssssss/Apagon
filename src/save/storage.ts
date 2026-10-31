@@ -9,6 +9,8 @@ const MAX_TIME_SECONDS = 86_400;
 export interface SaveData {
   /** null when the player never chose: the system preference is used instead. */
   reduceFlicker: boolean | null;
+  /** Sound off. Missing in older saves: sound on. */
+  muted: boolean;
   /** Best winning time in seconds, or null if the game was never won. */
   bestTimeSeconds: number | null;
 }
@@ -20,7 +22,7 @@ export interface StorageLike {
 }
 
 export function defaultSave(): SaveData {
-  return { reduceFlicker: null, bestTimeSeconds: null };
+  return { reduceFlicker: null, muted: false, bestTimeSeconds: null };
 }
 
 /**
@@ -43,6 +45,9 @@ export function parseSave(raw: string | null): SaveData {
   if (isRecord(settings) && typeof settings['reduceFlicker'] === 'boolean') {
     data.reduceFlicker = settings['reduceFlicker'];
   }
+  if (isRecord(settings) && typeof settings['muted'] === 'boolean') {
+    data.muted = settings['muted'];
+  }
   const best = parsed['bestTimeSeconds'];
   if (isValidTime(best)) data.bestTimeSeconds = best;
   return data;
@@ -51,6 +56,7 @@ export function parseSave(raw: string | null): SaveData {
 export function serializeSave(data: SaveData): string {
   const settings: Record<string, boolean> = {};
   if (data.reduceFlicker !== null) settings['reduceFlicker'] = data.reduceFlicker;
+  settings['muted'] = data.muted;
   return JSON.stringify({
     version: SAVE_VERSION,
     settings,

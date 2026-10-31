@@ -1,12 +1,17 @@
 import './style.css';
+import { createCueOutput, createCueState, resetCues, updateCues } from './audio/cues';
+import { Sfx } from './audio/sfx';
+import { parseDebugParams } from './core/debugParams';
 import { attachKeyboard, InputState } from './core/input';
 import { FixedStepClock, GameLoop } from './core/loop';
 import type { Vec2 } from './core/math';
 import { BALANCE } from './data/balance';
-import { TEST_ROOM } from './data/rooms';
+import { HOUSE } from './data/rooms';
+import { clearEvents } from './game/events';
 import { createWorld, resetWorld, stepWorld, type StepInput } from './game/world';
 import { Renderer } from './render/renderer';
 import { getBrowserStorage, isNewBest, loadSave, writeSave } from './save/storage';
+import { DebugOverlay } from './ui/debugOverlay';
 import { Screens } from './ui/screens';
 
 const canvas = document.querySelector<HTMLCanvasElement>('#game');
@@ -23,11 +28,21 @@ const prefersReducedMotion =
 let chosenReduceFlicker = save.reduceFlicker;
 let bestTime = save.bestTimeSeconds;
 
-// The seed only picks among the fixed enemy starts of the room.
-const world = createWorld(TEST_ROOM, {
-  seed: Date.now() >>> 0,
+// Debug options are read once; without them nothing extra is created (see docs/DEBUG.md).
+const debugParams = parseDebugParams(window.location.search);
+const debugOverlay = debugParams.debug ? new DebugOverlay(container) : null;
+
+// The seed only picks among the fixed enemy starts of the map.
+const world = createWorld(HOUSE, {
+  seed: debugParams.seed ?? Date.now() >>> 0,
   reduceFlicker: chosenReduceFlicker ?? prefersReducedMotion,
+  muted: save.muted,
+  godMode: debugParams.god,
 });
+const sfx = new Sfx();
+sfx.setMuted(world.settings.muted);
+const cueState = createCueState();
+const cues = createCueOutput();
 const input = new InputState();
 const renderer = new Renderer(gameCanvas);
 
@@ -44,16 +59,55 @@ const screens = new Screens(container, {
     screens.setReduceFlicker(checked);
     persist();
   },
+  onMute: setMuted,
 });
 screens.setReduceFlicker(world.settings.reduceFlicker);
+screens.setMuted(world.settings.muted);
 screens.showStart(false);
 
 function persist(): void {
-  writeSave(storage, { reduceFlicker: chosenReduceFlicker, bestTimeSeconds: bestTime });
+  writeSave(storage, {
+    reduceFlicker: chosenReduceFlicker,
+    muted: world.settings.muted,
+    bestTimeSeconds: bestTime,
+  });
+}
+
+function setMuted(muted: boolean): void {
+  world.settings.muted = muted;
+  sfx.setMuted(muted);
+  screens.setMuted(muted);
+  persist();
+}
+
+/** Plays the sounds for what happened in the last logic step, then clears the events. */
+function playStepSounds(stepSeconds: number): void {
+  const { events } = world;
+  updateCues(
+    cueState,
+    BALANCE.audio,
+    stepSeconds,
+    events.moving,
+    world.enemyNear,
+    events.enemyLit > 0,
+    cues,
+  );
+  if (cues.step) sfx.step();
+  if (cues.heartbeat) sfx.heartbeat(cues.heartbeatVolume);
+  if (cues.flicker) sfx.flicker();
+  if (events.keyPicked > 0) sfx.pickupKey();
+  if (events.batteryPicked > 0) sfx.pickupBattery();
+  if (events.doorLocked > 0) sfx.locked();
+  if (events.doorOpened > 0) sfx.win();
+  if (events.caught > 0) sfx.lose();
+  clearEvents(events);
 }
 
 function startRun(): void {
   resetWorld(world);
+  resetCues(cueState);
+  // Started from a click or key press, so the browser allows audio.
+  sfx.unlock();
   input.clear();
   state = 'playing';
   screens.hideAll();
@@ -69,6 +123,7 @@ function pause(focusMenu: boolean): void {
   if (state !== 'playing') return;
   state = 'paused';
   input.clear();
+  sfx.suspend();
   screens.showPause(focusMenu);
 }
 
@@ -76,6 +131,7 @@ function resume(): void {
   if (state !== 'paused') return;
   state = 'playing';
   input.clear();
+  sfx.unlock();
   screens.hideAll();
   gameCanvas.focus();
 }
@@ -118,15 +174,21 @@ const loop = new GameLoop(
         pause(true);
         return;
       }
+      if (input.consumeMute()) setMuted(!world.settings.muted);
       input.readAxis(axis);
       stepInput.axisX = axis.x;
       stepInput.axisY = axis.y;
       stepInput.toggleFlashlight = input.consumeToggle();
       stepInput.interact = input.consumeInteract();
       stepWorld(world, stepInput, stepSeconds);
+      debugOverlay?.countStep();
+      playStepSounds(stepSeconds);
       if (world.status !== 'playing') finishRun();
     },
-    render: (alpha) => renderer.render(world, alpha),
+    render: (alpha) => {
+      renderer.render(world, alpha);
+      debugOverlay?.frame(performance.now(), world, state);
+    },
   },
 );
 loop.start();

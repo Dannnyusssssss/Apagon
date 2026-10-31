@@ -64,6 +64,7 @@ export class Hud {
     ctx.textBaseline = 'middle';
     this.drawPanel(ctx, world);
     this.drawPrompt(ctx, world, width, height);
+    this.drawSound(ctx, world.settings.muted, height);
     ctx.restore();
   }
 
@@ -146,6 +147,43 @@ export class Hud {
     ctx.beginPath();
     ctx.arc(x + 12 * u, y, 3 * u, 0, Math.PI * 2);
     ctx.fill();
+  }
+
+  /** Bottom-left sound state: speaker icon (crossed when off) and text. */
+  private drawSound(ctx: CanvasRenderingContext2D, muted: boolean, height: number): void {
+    const u = this.unit;
+    const x = 12 * u;
+    const h = 30 * u;
+    const y = height - h - 12 * u;
+    const cy = y + h / 2;
+    ctx.fillStyle = COLORS.panel;
+    ctx.fillRect(x, y, 170 * u, h);
+
+    const ix = x + 10 * u;
+    ctx.fillStyle = COLORS.text;
+    ctx.beginPath();
+    ctx.moveTo(ix, cy - 4 * u);
+    ctx.lineTo(ix + 5 * u, cy - 4 * u);
+    ctx.lineTo(ix + 11 * u, cy - 9 * u);
+    ctx.lineTo(ix + 11 * u, cy + 9 * u);
+    ctx.lineTo(ix + 5 * u, cy + 4 * u);
+    ctx.lineTo(ix, cy + 4 * u);
+    ctx.closePath();
+    ctx.fill();
+    ctx.strokeStyle = COLORS.text;
+    ctx.lineWidth = 2 * u;
+    ctx.beginPath();
+    if (muted) {
+      ctx.moveTo(ix + 15 * u, cy - 5 * u);
+      ctx.lineTo(ix + 23 * u, cy + 5 * u);
+      ctx.moveTo(ix + 23 * u, cy - 5 * u);
+      ctx.lineTo(ix + 15 * u, cy + 5 * u);
+    } else {
+      ctx.arc(ix + 12 * u, cy, 8 * u, -Math.PI / 4, Math.PI / 4);
+    }
+    ctx.stroke();
+
+    ctx.fillText(muted ? TEXTS.hud.soundOff : TEXTS.hud.soundOn, ix + 30 * u, cy);
   }
 
   private drawPrompt(

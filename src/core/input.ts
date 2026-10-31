@@ -5,6 +5,7 @@ const PREVENT_DEFAULT: ReadonlySet<string> = new Set(CONTROLS.preventDefault);
 const TOGGLE_FLASHLIGHT: ReadonlySet<string> = new Set(CONTROLS.toggleFlashlight);
 const INTERACT: ReadonlySet<string> = new Set(CONTROLS.interact);
 const PAUSE: ReadonlySet<string> = new Set(CONTROLS.pause);
+const MUTE: ReadonlySet<string> = new Set(CONTROLS.mute);
 
 /** Keyboard state without DOM access, so it can be tested. */
 export class InputState {
@@ -12,6 +13,7 @@ export class InputState {
   private toggleRequested = false;
   private interactRequested = false;
   private pauseRequested = false;
+  private muteRequested = false;
 
   /** Returns true when the browser default action must be prevented. */
   keyDown(code: string, repeat: boolean): boolean {
@@ -20,6 +22,7 @@ export class InputState {
       if (TOGGLE_FLASHLIGHT.has(code)) this.toggleRequested = true;
       if (INTERACT.has(code)) this.interactRequested = true;
       if (PAUSE.has(code)) this.pauseRequested = true;
+      if (MUTE.has(code)) this.muteRequested = true;
     }
     return PREVENT_DEFAULT.has(code);
   }
@@ -33,6 +36,7 @@ export class InputState {
     this.toggleRequested = false;
     this.interactRequested = false;
     this.pauseRequested = false;
+    this.muteRequested = false;
   }
 
   isDown(code: string): boolean {
@@ -57,6 +61,13 @@ export class InputState {
   consumePause(): boolean {
     const requested = this.pauseRequested;
     this.pauseRequested = false;
+    return requested;
+  }
+
+  /** Returns true once per mute key press. */
+  consumeMute(): boolean {
+    const requested = this.muteRequested;
+    this.muteRequested = false;
     return requested;
   }
 

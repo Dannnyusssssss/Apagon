@@ -3,6 +3,7 @@ import { BALANCE } from '../data/balance';
 import type { RoomDef } from '../data/rooms';
 import { lightRadius } from './battery';
 import { createEnemy, placeEnemy, type Enemy } from './enemy';
+import { clearEvents, createEvents, type WorldEvents } from './events';
 import { createFlashlight, resetFlashlight, type Flashlight } from './flashlight';
 import { createInventory, createItems, resetItems, type Inventory, type Item } from './items';
 import {
@@ -28,12 +29,18 @@ export type WorldStatus = 'playing' | 'lost' | 'won';
 export interface WorldSettings {
   /** Removes the flashlight flicker (photosensitivity option). */
   reduceFlicker: boolean;
+  /** Sound off. Not used by the logic; kept here so every view reads one place. */
+  muted: boolean;
+  /** Debug only: the enemy cannot catch the player. */
+  godMode: boolean;
 }
 
 export interface WorldOptions {
   /** Seed for every gameplay random choice. */
   seed: number;
   reduceFlicker: boolean;
+  muted?: boolean;
+  godMode?: boolean;
 }
 
 export interface World {
@@ -47,6 +54,8 @@ export interface World {
   readonly field: DistanceField;
   readonly rng: Rng;
   readonly settings: WorldSettings;
+  /** Filled by the steps, cleared by the reader (sound). */
+  readonly events: WorldEvents;
   status: WorldStatus;
   /** Seconds of play in this run (logic steps only, so pauses do not count). */
   elapsedSeconds: number;
@@ -76,7 +85,12 @@ export function createWorld(roomDef: RoomDef, options: WorldOptions = DEFAULT_OP
     interact: createInteractState(),
     field: createDistanceField(room),
     rng: createRng(options.seed),
-    settings: { reduceFlicker: options.reduceFlicker },
+    settings: {
+      reduceFlicker: options.reduceFlicker,
+      muted: options.muted ?? false,
+      godMode: options.godMode ?? false,
+    },
+    events: createEvents(),
     status: 'playing',
     elapsedSeconds: 0,
     enemyNear: 0,
@@ -107,6 +121,7 @@ export function resetWorld(world: World): void {
   world.status = 'playing';
   world.elapsedSeconds = 0;
   world.enemyNear = 0;
+  clearEvents(world.events);
 }
 
 /** Current flashlight radius, shrinking with the battery charge. */
@@ -131,11 +146,21 @@ export function stepWorld(world: World, input: StepInput, stepSeconds: number): 
     return;
   }
 
+  const { events } = world;
+  const wasOn = flashlight.on;
+  const wasLit = enemy.lit;
+  const startX = player.x;
+  const startY = player.y;
+
   world.elapsedSeconds += stepSeconds;
   flashlightSystem(flashlight, input.toggleFlashlight);
+  if (flashlight.on !== wasOn) events.lightToggled++;
+  const hadCharge = flashlight.battery > 0;
   batterySystem(flashlight, BALANCE.battery, stepSeconds);
+  if (hadCharge && flashlight.battery === 0) events.batteryEmptied++;
   movementSystem(room, player, input.axisX, input.axisY, stepSeconds);
-  const opened = interactSystem(
+  events.moving = player.x !== startX || player.y !== startY;
+  const result = interactSystem(
     room,
     player,
     world.items,
@@ -146,7 +171,11 @@ export function stepWorld(world: World, input: StepInput, stepSeconds: number): 
     BALANCE.battery.rechargeAmount,
     input.interact,
   );
-  if (opened) {
+  if (result === 'key') events.keyPicked++;
+  else if (result === 'battery') events.batteryPicked++;
+  else if (result === 'locked') events.doorLocked++;
+  else if (result === 'opened') {
+    events.doorOpened++;
     world.status = 'won';
     enemy.prevX = enemy.x;
     enemy.prevY = enemy.y;
@@ -160,8 +189,12 @@ export function stepWorld(world: World, input: StepInput, stepSeconds: number): 
   );
   const litRadius = currentLightRadius(flashlight) * BALANCE.visibility.litRadiusFraction;
   visibilitySystem(room, flashlight, player, enemy, litRadius);
+  if (enemy.lit && !wasLit) events.enemyLit++;
   enemySystem(room, field, enemy, player, BALANCE.enemy.freezeAfterLightSeconds, stepSeconds);
   flickerSystem(flashlight, enemy.lit, world.settings.reduceFlicker, BALANCE.flicker, stepSeconds);
   world.enemyNear = enemyNearSystem(player, enemy, BALANCE.warning.enemyNearDistance);
-  if (catchSystem(player, enemy, BALANCE.enemy.catchDistance)) world.status = 'lost';
+  if (!world.settings.godMode && catchSystem(player, enemy, BALANCE.enemy.catchDistance)) {
+    events.caught++;
+    world.status = 'lost';
+  }
 }

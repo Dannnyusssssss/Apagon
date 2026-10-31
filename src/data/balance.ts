@@ -27,11 +27,11 @@ export const BALANCE = {
   },
   battery: {
     /** Seconds of light from a full charge. */
-    drainSeconds: 60,
+    drainSeconds: 50,
     /** Light radius at an almost empty battery, as a fraction of the full radius. */
     minRadiusFraction: 0.45,
     /** Charge added by one battery pickup (1 = full). */
-    rechargeAmount: 0.4,
+    rechargeAmount: 0.35,
     /** At or below this charge the HUD warns about low battery. */
     lowThreshold: 0.25,
   },
@@ -47,9 +47,9 @@ export const BALANCE = {
     /** Half-size of the collision box; also the drawn radius. */
     radius: 15,
     /** Slower than the player, so running away is possible. */
-    speed: 150,
+    speed: 145,
     /** Seconds the enemy waits before moving at the start of a run. */
-    startDelaySeconds: 2,
+    startDelaySeconds: 3,
     /** Seconds the enemy stays still after leaving the light. */
     freezeAfterLightSeconds: 0.6,
     /** Center distance at which the enemy reaches the player. */
@@ -75,6 +75,28 @@ export const BALANCE = {
     litRadiusFraction: 0.85,
     /** How far the light enters wall tiles, so their faces are visible. */
     wallPenetration: 10,
+  },
+  audio: {
+    /** Overall volume (0..1). Kept moderate; a limiter also stops peaks. */
+    masterVolume: 0.35,
+    /** Low background drone. */
+    ambientVolume: 0.05,
+    stepVolume: 0.12,
+    /** Seconds between footsteps while moving. */
+    stepInterval: 0.36,
+    /** The heartbeat starts when the "enemy near" level passes this value. */
+    heartbeatThreshold: 0.15,
+    /** Beats per minute from the threshold to touching distance (never above 2 per second). */
+    heartbeatMinBpm: 60,
+    heartbeatMaxBpm: 120,
+    heartbeatMinVolume: 0.08,
+    heartbeatMaxVolume: 0.3,
+    flickerVolume: 0.08,
+    /** Min seconds between two flicker sounds. */
+    flickerMinGap: 0.6,
+    pickupVolume: 0.22,
+    lockedVolume: 0.18,
+    endVolume: 0.22,
   },
   lighting: {
     /** Opacity of the darkness layer (1 = pure black). */

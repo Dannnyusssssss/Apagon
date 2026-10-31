@@ -7,6 +7,9 @@ import type { RoomGrid } from '../rooms';
 /** What pressing E would do right now. */
 export type Prompt = 'none' | 'pickKey' | 'pickBattery' | 'openDoor' | 'doorLocked';
 
+/** What happened when E was pressed this step. */
+export type InteractResult = 'none' | 'key' | 'battery' | 'locked' | 'opened';
+
 export interface InteractState {
   prompt: Prompt;
   /** Index of the item E would pick up, or -1. */
@@ -19,7 +22,7 @@ export function createInteractState(): InteractState {
 
 /**
  * Finds what is in reach (the closest item first, then the door) and,
- * when E was pressed, does it. Returns true when the door is opened (run won).
+ * when E was pressed, does it. Returns 'opened' when the run is won.
  */
 export function interactSystem(
   room: RoomGrid,
@@ -31,9 +34,9 @@ export function interactSystem(
   reach: number,
   rechargeAmount: number,
   pressed: boolean,
-): boolean {
+): InteractResult {
   findTarget(room, player, items, inventory, state, reach);
-  if (!pressed) return false;
+  if (!pressed) return 'none';
 
   const item = items[state.itemIndex];
   if (item) {
@@ -41,9 +44,11 @@ export function interactSystem(
     if (item.kind === 'key') inventory.keys++;
     else rechargeBattery(flashlight, rechargeAmount);
     findTarget(room, player, items, inventory, state, reach);
-    return false;
+    return item.kind;
   }
-  return state.prompt === 'openDoor';
+  if (state.prompt === 'openDoor') return 'opened';
+  if (state.prompt === 'doorLocked') return 'locked';
+  return 'none';
 }
 
 function findTarget(

@@ -54,6 +54,17 @@ describe('InputState', () => {
     expect(input.consumePause()).toBe(false);
   });
 
+  it('requests mute once per M press', () => {
+    const input = new InputState();
+    input.keyDown('KeyM', false);
+    input.keyDown('KeyM', true);
+    expect(input.consumeMute()).toBe(true);
+    expect(input.consumeMute()).toBe(false);
+    input.keyDown('KeyM', false);
+    input.clear();
+    expect(input.consumeMute()).toBe(false);
+  });
+
   it('prevents the default action only for arrows and space', () => {
     const input = new InputState();
     expect(input.keyDown('ArrowDown', false)).toBe(true);

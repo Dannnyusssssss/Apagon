@@ -1,4 +1,4 @@
-import type { RoomDef } from '../data/rooms';
+import type { AreaDef, RoomDef } from '../data/rooms';
 
 export const TILE_FLOOR = 0;
 export const TILE_WALL = 1;
@@ -26,6 +26,8 @@ export interface RoomGrid {
   readonly batteries: readonly TileCoord[];
   /** The single exit door, next to at least one floor tile. */
   readonly door: TileCoord;
+  /** Named rooms of the map (may be empty). */
+  readonly areas: readonly AreaDef[];
 }
 
 /** Builds a tile grid from a text layout. Throws on malformed data. */
@@ -93,7 +95,18 @@ export function parseRoom(def: RoomDef, tileSize: number): RoomGrid {
     keys,
     batteries,
     door: exit,
+    areas: def.areas ?? [],
   };
+  for (const area of room.areas) {
+    const inside =
+      area.col >= 0 &&
+      area.row >= 0 &&
+      area.cols > 0 &&
+      area.rows > 0 &&
+      area.col + area.cols <= cols &&
+      area.row + area.rows <= rows;
+    if (!inside) throw new Error(`Room "${def.id}" area "${area.id}" is outside the map`);
+  }
   if (!hasFloorNeighbour(room, exit)) throw new Error(`Room "${def.id}" door cannot be reached`);
   return room;
 }
@@ -105,6 +118,21 @@ function hasFloorNeighbour(room: RoomGrid, tile: TileCoord): boolean {
     !isWall(room, tile.col, tile.row + 1) ||
     !isWall(room, tile.col, tile.row - 1)
   );
+}
+
+/** Id of the area that contains the tile, or null. */
+export function areaAt(room: RoomGrid, col: number, row: number): string | null {
+  for (const area of room.areas) {
+    if (
+      col >= area.col &&
+      col < area.col + area.cols &&
+      row >= area.row &&
+      row < area.row + area.rows
+    ) {
+      return area.id;
+    }
+  }
+  return null;
 }
 
 /** Returns the tile type; anything outside the grid counts as wall. */

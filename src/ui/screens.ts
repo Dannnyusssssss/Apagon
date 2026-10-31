@@ -71,6 +71,7 @@ export interface ScreenHandlers {
   onResume(): void;
   onRetry(): void;
   onReduceFlicker(checked: boolean): void;
+  onMute(checked: boolean): void;
 }
 
 /** Start, pause, victory and defeat screens. Only "Retry" on the end screens. */
@@ -81,6 +82,7 @@ export class Screens {
   private readonly defeat: Screen;
   private readonly all: readonly Screen[];
   private readonly reduceBoxes: HTMLInputElement[] = [];
+  private readonly muteBoxes: HTMLInputElement[] = [];
   private readonly victoryTime: HTMLParagraphElement;
   private readonly victoryBest: HTMLParagraphElement;
   private readonly victoryNewBest: HTMLParagraphElement;
@@ -95,6 +97,7 @@ export class Screens {
     this.reduceBoxes.push(
       this.start.checkbox(TEXTS.settings.reduceFlicker, handlers.onReduceFlicker),
     );
+    this.muteBoxes.push(this.start.checkbox(TEXTS.settings.mute, handlers.onMute));
     this.start.button(TEXTS.start.play, handlers.onStart);
     this.start.text(TEXTS.start.leave, 'screen__text screen__text--small');
 
@@ -103,6 +106,7 @@ export class Screens {
     this.reduceBoxes.push(
       this.pause.checkbox(TEXTS.settings.reduceFlicker, handlers.onReduceFlicker),
     );
+    this.muteBoxes.push(this.pause.checkbox(TEXTS.settings.mute, handlers.onMute));
     this.pause.button(TEXTS.pause.resume, handlers.onResume);
     this.pause.text(TEXTS.start.leave, 'screen__text screen__text--small');
 
@@ -121,6 +125,10 @@ export class Screens {
 
   setReduceFlicker(checked: boolean): void {
     for (const box of this.reduceBoxes) box.checked = checked;
+  }
+
+  setMuted(checked: boolean): void {
+    for (const box of this.muteBoxes) box.checked = checked;
   }
 
   /** Focus is not moved on first load, so the page does not steal focus inside a frame. */
