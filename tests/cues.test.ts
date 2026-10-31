@@ -3,8 +3,9 @@ import {
   createCueOutput,
   createCueState,
   heartbeatInterval,
+  crackleInterval,
   heartbeatVolume,
-  lowBatteryVolume,
+  lowBatteryLevel,
   updateCues,
   type CueConfig,
 } from '../src/audio/cues';
@@ -19,15 +20,17 @@ function count(
   moving: boolean,
   near: number,
   lit: boolean,
-): { steps: number; beats: number; flickers: number } {
+  battery = 0,
+): { steps: number; beats: number; flickers: number; crackles: number } {
   const state = createCueState();
   const out = createCueOutput();
-  const result = { steps: 0, beats: 0, flickers: 0 };
+  const result = { steps: 0, beats: 0, flickers: 0, crackles: 0 };
   for (let i = 0; i < Math.round(seconds / STEP); i++) {
-    updateCues(state, CFG, STEP, moving, near, lit, out);
+    updateCues(state, CFG, STEP, moving, near, lit, battery, out);
     if (out.step) result.steps++;
     if (out.heartbeat) result.beats++;
     if (out.flicker) result.flickers++;
+    if (out.crackle) result.crackles++;
   }
   return result;
 }
@@ -67,23 +70,33 @@ describe('sound cues', () => {
     expect(flickers).toBeLessThanOrEqual(Math.ceil(seconds / CFG.flickerMinGap));
   });
 
-  it('starts the low-battery drone below the threshold and grows smoothly to its cap', () => {
-    const max = CFG_AUDIO.lowBatteryMaxVolume;
-    const low = BALANCE.battery.lowThreshold;
-    expect(lowBatteryVolume(1, low, max)).toBe(0);
-    expect(lowBatteryVolume(low + 0.01, low, max)).toBe(0);
-    expect(lowBatteryVolume(low, low, max)).toBe(0);
-    expect(lowBatteryVolume(low / 2, low, max)).toBeCloseTo(max / 2, 9);
-    expect(lowBatteryVolume(0, low, max)).toBe(max);
-    expect(lowBatteryVolume(-1, low, max)).toBe(max);
-    // No jumps: small charge changes give small volume changes.
+  it('raises the low-battery level smoothly from the threshold to empty', () => {
+    const low = CFG_AUDIO.lowBatteryThreshold;
+    expect(lowBatteryLevel(1, low)).toBe(0);
+    expect(lowBatteryLevel(low + 0.01, low)).toBe(0);
+    expect(lowBatteryLevel(low, low)).toBe(0);
+    expect(lowBatteryLevel(low / 2, low)).toBeCloseTo(0.5, 9);
+    expect(lowBatteryLevel(0, low)).toBe(1);
+    expect(lowBatteryLevel(-1, low)).toBe(1);
     let previous = 0;
     for (let b = low; b >= 0; b -= 0.001) {
-      const v = lowBatteryVolume(b, low, max);
+      const v = lowBatteryLevel(b, low);
       expect(v).toBeGreaterThanOrEqual(previous);
       expect(v - previous).toBeLessThan(0.01);
       previous = v;
     }
-    expect(max).toBeLessThanOrEqual(BALANCE.audio.masterVolume);
+    // The hum stays below the master volume.
+    expect(CFG_AUDIO.lowBatteryMaxVolume).toBeLessThanOrEqual(CFG_AUDIO.masterVolume);
+  });
+
+  it('crackles only with low battery, faster as it runs out', () => {
+    expect(crackleInterval(0, CFG.crackleSlow, CFG.crackleFast)).toBe(Infinity);
+    expect(crackleInterval(1, CFG.crackleSlow, CFG.crackleFast)).toBeCloseTo(CFG.crackleFast, 9);
+    expect(count(10, false, 0, false, 0).crackles).toBe(0);
+    const some = count(10, false, 0, false, 0.2).crackles;
+    const many = count(10, false, 0, false, 1).crackles;
+    expect(some).toBeGreaterThan(0);
+    expect(many).toBeGreaterThan(some);
+    expect(many).toBeLessThanOrEqual(Math.ceil(10 / CFG.crackleFast) + 1);
   });
 });

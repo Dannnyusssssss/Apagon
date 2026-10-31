@@ -1,21 +1,25 @@
 import { createRng, nextFloat } from '../core/rng';
 import { BALANCE } from '../data/balance';
+import { CHORDS, midiToFrequency, ROOT } from './music';
 
 const CFG = BALANCE.audio;
+const MUSIC = BALANCE.music;
 /** Seed for the noise buffer; the noise only has to sound like noise. */
 const NOISE_SEED = 0x5eed;
 const NOISE_SECONDS = 1;
 /** Time constant for muting and unmuting, so the change is not a click. */
 const MUTE_FADE = 0.05;
-/** Time constant for the low-battery drone, so it swells and fades slowly. */
-const DRONE_FADE = 0.4;
-/** Smallest drone volume change worth sending to the audio thread. */
-const DRONE_EPSILON = 0.002;
+/** Time constant for the low-battery hum and the music darkening: slow swells. */
+const SLOW_FADE = 0.4;
+/** Smallest level change worth sending to the audio thread. */
+const LEVEL_EPSILON = 0.002;
+/** Base pitch of the "dying bulb" hum: a low mains-like buzz laptops can play. */
+const BULB_HZ = 110;
 
-type Wave = 'sine' | 'triangle' | 'square';
+type Wave = 'sine' | 'triangle' | 'square' | 'sawtooth';
 
 /**
- * Every sound is synthesized with WebAudio: no audio files.
+ * Every sound is synthesized with WebAudio: no audio files, no third-party music.
  * The context is created on the first player gesture (`unlock`).
  * A limiter after the master volume keeps any sum of sounds from peaking.
  */
@@ -23,9 +27,16 @@ export class Sfx {
   private ctx: AudioContext | null = null;
   private master: GainNode | null = null;
   private noise: AudioBuffer | null = null;
-  private drone: GainNode | null = null;
-  private droneVolume = 0;
   private muted = false;
+
+  private bulb: GainNode | null = null;
+  private bulbOscillators: OscillatorNode[] = [];
+  private batteryLevel = 0;
+
+  private music: GainNode | null = null;
+  private musicFilter: BiquadFilterNode | null = null;
+  private musicInput: GainNode | null = null;
+  private musicOn = false;
 
   /** Call from a click or key handler. Safe to call many times. */
   unlock(): void {
@@ -45,28 +56,92 @@ export class Sfx {
     }
   }
 
-  /** Sets the low-battery drone volume (0 = silent). Cheap to call every step. */
-  setLowBattery(volume: number): void {
-    if (Math.abs(volume - this.droneVolume) < DRONE_EPSILON) return;
-    this.droneVolume = volume;
-    if (this.ctx && this.drone) {
-      this.drone.gain.setTargetAtTime(volume, this.ctx.currentTime, DRONE_FADE);
+  /**
+   * Low-battery level (0..1, see `lowBatteryLevel`): raises the dying-bulb hum,
+   * makes it sag in pitch, and darkens and detunes the music. Cheap to call every step.
+   */
+  setBatteryLevel(level: number): void {
+    if (Math.abs(level - this.batteryLevel) < LEVEL_EPSILON) return;
+    this.batteryLevel = level;
+    const { ctx } = this;
+    if (!ctx) return;
+    const now = ctx.currentTime;
+    this.bulb?.gain.setTargetAtTime(level * CFG.lowBatteryMaxVolume, now, SLOW_FADE);
+    for (const osc of this.bulbOscillators) {
+      osc.detune.setTargetAtTime(-level * CFG.lowBatterySagCents, now, SLOW_FADE);
     }
+    const cutoff = MUSIC.brightCutoff + (MUSIC.darkCutoff - MUSIC.brightCutoff) * level;
+    this.musicFilter?.frequency.setTargetAtTime(cutoff, now, SLOW_FADE);
+  }
+
+  /** Fades the music in (start of a run) or out (end of a run). */
+  setMusicOn(on: boolean): void {
+    this.musicOn = on;
+    if (this.ctx && this.music) {
+      this.music.gain.setTargetAtTime(
+        on ? MUSIC.volume : 0,
+        this.ctx.currentTime,
+        MUSIC.fadeSeconds / 3,
+      );
+    }
+  }
+
+  /** A slow pad chord (index into CHORDS), two slightly detuned voices per note. */
+  musicChord(index: number): void {
+    const chord = CHORDS[index];
+    const now = this.now();
+    if (!chord || now < 0) return;
+    const duration = MUSIC.chordSeconds + 1.5;
+    for (const step of chord) {
+      const freq = midiToFrequency(ROOT + step);
+      for (const cents of [-6, 6]) {
+        this.musicVoice('triangle', freq, cents, now, duration, MUSIC.padVolume, 2.5);
+      }
+    }
+  }
+
+  /** A music-box note: a bright fundamental and a bell-like partial, with echo. */
+  musicNote(midi: number): void {
+    const now = this.now();
+    if (now < 0) return;
+    const freq = midiToFrequency(midi);
+    this.musicVoice('sine', freq, 0, now, 2.4, MUSIC.noteVolume, 0.005);
+    this.musicVoice('sine', freq * 2.76, 0, now, 0.9, MUSIC.noteVolume * 0.3, 0.005);
+  }
+
+  /** A low, muffled pulse for tension; louder as the enemy gets closer. */
+  musicPulse(tension: number): void {
+    const now = this.now();
+    if (now < 0) return;
+    const volume = MUSIC.pulseVolume * (0.5 + tension / 2);
+    const freq = midiToFrequency(ROOT);
+    this.musicVoice('triangle', freq, 0, now, 0.35, volume, 0.01);
+    this.musicVoice('sine', freq * 2, 0, now, 0.25, volume * 0.5, 0.01);
   }
 
   step(): void {
     this.noiseBurst('bandpass', 900, 0.07, CFG.stepVolume);
   }
 
+  /** Two thumps ("lub-dub") with an upper harmonic, so small speakers can play them. */
   heartbeat(volume: number): void {
     const now = this.now();
     if (now < 0) return;
-    this.tone('sine', 58, now, 0.16, volume, 44);
-    this.tone('sine', 52, now + 0.17, 0.18, volume * 0.75, 40);
+    this.tone('triangle', 82, now, 0.16, volume, 60);
+    this.tone('sine', 164, now, 0.1, volume * 0.4, 120);
+    this.tone('triangle', 74, now + 0.17, 0.18, volume * 0.75, 55);
+    this.tone('sine', 148, now + 0.17, 0.1, volume * 0.3, 110);
   }
 
   flicker(): void {
     this.noiseBurst('bandpass', 2600, 0.12, CFG.flickerVolume);
+  }
+
+  /** A short electric crackle of the dying bulb. */
+  crackle(): void {
+    this.noiseBurst('highpass', 3200, 0.05, CFG.crackleVolume);
+    const now = this.now();
+    if (now >= 0) this.tone('square', BULB_HZ * 2, now, 0.04, CFG.crackleVolume * 0.3);
   }
 
   pickupKey(): void {
@@ -95,11 +170,11 @@ export class Sfx {
     for (const freq of [262, 330, 392]) this.tone('sine', freq, now, 1.6, CFG.endVolume / 2);
   }
 
-  /** A slow, low tone: no sudden loud sound on defeat. */
+  /** A slow, falling tone: no sudden loud sound on defeat. */
   lose(): void {
     const now = this.now();
     if (now < 0) return;
-    this.tone('sine', 98, now, 1.4, CFG.endVolume, 70);
+    this.tone('triangle', 147, now, 1.4, CFG.endVolume, 98);
   }
 
   private volume(): number {
@@ -130,83 +205,111 @@ export class Sfx {
       this.ctx = ctx;
       this.master = master;
       this.noise = createNoise(ctx);
-      this.startAmbient();
-      this.startDrone();
+      this.createMusicBus();
+      this.createBulb();
     } catch {
       this.ctx = null;
       this.master = null;
     }
   }
 
-  /** Low drone made of two slightly detuned tones, through a low-pass filter. */
-  private startAmbient(): void {
+  /** Music voices -> low-pass (darkens with low battery) -> volume, plus an echo send. */
+  private createMusicBus(): void {
     const { ctx, master } = this;
     if (!ctx || !master) return;
+    const music = ctx.createGain();
+    music.gain.value = this.musicOn ? MUSIC.volume : 0;
+    music.connect(master);
+
     const filter = ctx.createBiquadFilter();
     filter.type = 'lowpass';
-    filter.frequency.value = 220;
-    const gain = ctx.createGain();
-    gain.gain.value = CFG.ambientVolume;
-    filter.connect(gain).connect(master);
-    for (const freq of [55, 55.6, 82.4]) {
-      const osc = ctx.createOscillator();
-      osc.type = 'sine';
-      osc.frequency.value = freq;
-      osc.connect(filter);
-      osc.start();
-    }
+    filter.frequency.value = MUSIC.brightCutoff;
+    filter.connect(music);
+
+    const input = ctx.createGain();
+    input.connect(filter);
+
+    const delay = ctx.createDelay(2);
+    delay.delayTime.value = MUSIC.echoSeconds;
+    const feedback = ctx.createGain();
+    feedback.gain.value = MUSIC.echoFeedback;
+    input.connect(delay);
+    delay.connect(feedback).connect(delay);
+    delay.connect(filter);
+
+    this.music = music;
+    this.musicFilter = filter;
+    this.musicInput = input;
   }
 
   /**
-   * Low-battery drone: two low tones a little apart (slow beating), a dissonant
-   * third tone and a faint electric buzz, with a slow swell. Starts at the last requested volume.
+   * The dying bulb: a mains-like hum (110 Hz and a rough overtone a little off),
+   * through a band-pass, with a slow uneven swell. Silent until the battery is low.
    */
-  private startDrone(): void {
+  private createBulb(): void {
     const { ctx, master } = this;
     if (!ctx || !master) return;
-    const drone = ctx.createGain();
-    drone.gain.value = this.droneVolume;
-    drone.connect(master);
+    const bulb = ctx.createGain();
+    bulb.gain.value = this.batteryLevel * CFG.lowBatteryMaxVolume;
+    bulb.connect(master);
 
-    const tremolo = ctx.createGain();
-    tremolo.gain.value = 0.65;
-    tremolo.connect(drone);
+    const swell = ctx.createGain();
+    swell.gain.value = 0.7;
+    swell.connect(bulb);
     const lfo = ctx.createOscillator();
-    lfo.frequency.value = 0.35;
+    lfo.frequency.value = 0.45;
     const depth = ctx.createGain();
-    depth.gain.value = 0.35;
-    lfo.connect(depth).connect(tremolo.gain);
+    depth.gain.value = 0.3;
+    lfo.connect(depth).connect(swell.gain);
     lfo.start();
 
-    const low = ctx.createBiquadFilter();
-    low.type = 'lowpass';
-    low.frequency.value = 320;
-    low.connect(tremolo);
-    for (const [freq, wave] of [
-      [46, 'sine'],
-      [48.7, 'sine'],
-      [65.4, 'triangle'],
-    ] as const) {
+    const band = ctx.createBiquadFilter();
+    band.type = 'bandpass';
+    band.frequency.value = 330;
+    band.Q.value = 0.9;
+    band.connect(swell);
+
+    const voices: [Wave, number, number][] = [
+      ['sawtooth', BULB_HZ, 0.5],
+      ['sawtooth', BULB_HZ * 1.06, 0.35],
+      ['square', BULB_HZ * 2, 0.12],
+    ];
+    for (const [wave, freq, level] of voices) {
       const osc = ctx.createOscillator();
       osc.type = wave;
       osc.frequency.value = freq;
-      osc.connect(low);
+      const gain = ctx.createGain();
+      gain.gain.value = level;
+      osc.connect(gain).connect(band);
       osc.start();
+      this.bulbOscillators.push(osc);
     }
+    this.bulb = bulb;
+  }
 
-    const buzz = ctx.createOscillator();
-    buzz.type = 'sawtooth';
-    buzz.frequency.value = 120;
-    const buzzFilter = ctx.createBiquadFilter();
-    buzzFilter.type = 'bandpass';
-    buzzFilter.frequency.value = 2400;
-    buzzFilter.Q.value = 8;
-    const buzzGain = ctx.createGain();
-    buzzGain.gain.value = 0.12;
-    buzz.connect(buzzFilter).connect(buzzGain).connect(tremolo);
-    buzz.start();
-
-    this.drone = drone;
+  /** One music voice with a soft attack of `attack` seconds, into the music bus. */
+  private musicVoice(
+    wave: Wave,
+    freq: number,
+    cents: number,
+    start: number,
+    duration: number,
+    volume: number,
+    attack: number,
+  ): void {
+    const { ctx, musicInput } = this;
+    if (!ctx || !musicInput) return;
+    const osc = ctx.createOscillator();
+    osc.type = wave;
+    osc.frequency.value = freq;
+    osc.detune.value = cents + this.batteryLevel * MUSIC.darkDetuneCents;
+    const gain = ctx.createGain();
+    gain.gain.setValueAtTime(0.0001, start);
+    gain.gain.exponentialRampToValueAtTime(Math.max(0.0001, volume), start + attack);
+    gain.gain.exponentialRampToValueAtTime(0.0001, start + duration);
+    osc.connect(gain).connect(musicInput);
+    osc.start(start);
+    osc.stop(start + duration + 0.05);
   }
 
   private tone(

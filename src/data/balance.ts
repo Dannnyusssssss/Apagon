@@ -90,8 +90,6 @@ export const BALANCE = {
   audio: {
     /** Overall volume (0..1). Kept moderate; a limiter also stops peaks. */
     masterVolume: 0.35,
-    /** Low background drone. */
-    ambientVolume: 0.05,
     stepVolume: 0.12,
     /** Seconds between footsteps while moving. */
     stepInterval: 0.36,
@@ -108,8 +106,42 @@ export const BALANCE = {
     pickupVolume: 0.22,
     lockedVolume: 0.18,
     endVolume: 0.22,
-    /** Dissonant drone while the battery is low; grows as the charge runs out. */
-    lowBatteryMaxVolume: 0.12,
+    /**
+     * "Dying bulb" while the battery is low: an electric hum that sags in pitch,
+     * with crackles. Starts at this charge and grows as it runs out.
+     * Kept between 110 and 440 Hz so laptop speakers can play it.
+     */
+    lowBatteryThreshold: 0.3,
+    lowBatteryMaxVolume: 0.22,
+    /** How far the hum sags when empty, in cents. */
+    lowBatterySagCents: 120,
+    /** Seconds between crackles just below the threshold and when empty. */
+    crackleSlow: 1.6,
+    crackleFast: 0.35,
+    crackleVolume: 0.12,
+  },
+  music: {
+    /** Music bus volume (under the master volume). */
+    volume: 0.55,
+    chordSeconds: 8,
+    noteGapCalm: [2, 5],
+    noteGapTense: [0.8, 2],
+    pulseThreshold: 0.35,
+    /** Never faster than 2 pulses per second. */
+    pulseSlow: 0.9,
+    pulseFast: 0.5,
+    padVolume: 0.07,
+    noteVolume: 0.1,
+    pulseVolume: 0.14,
+    echoSeconds: 0.42,
+    echoFeedback: 0.35,
+    /** Music low-pass cutoff with a full battery and when empty: it gets darker. */
+    brightCutoff: 2600,
+    darkCutoff: 450,
+    /** Detune of the whole piece when the battery is empty, in cents. */
+    darkDetuneCents: -35,
+    /** Seconds to fade the music in at the start and out at the end of a run. */
+    fadeSeconds: 2,
   },
   lighting: {
     /** Opacity of the darkness layer (1 = pure black). */

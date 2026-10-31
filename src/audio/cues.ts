@@ -7,6 +7,8 @@ export interface CueConfig {
   readonly heartbeatMinVolume: number;
   readonly heartbeatMaxVolume: number;
   readonly flickerMinGap: number;
+  readonly crackleSlow: number;
+  readonly crackleFast: number;
 }
 
 export interface CueState {
@@ -15,6 +17,7 @@ export interface CueState {
   stepTimer: number;
   heartbeatTimer: number;
   lastFlickerAt: number;
+  crackleTimer: number;
 }
 
 /** Sounds to play after one logic step. Reused, never reallocated. */
@@ -23,14 +26,15 @@ export interface CueOutput {
   heartbeat: boolean;
   heartbeatVolume: number;
   flicker: boolean;
+  crackle: boolean;
 }
 
 export function createCueState(): CueState {
-  return { time: 0, stepTimer: 0, heartbeatTimer: 0, lastFlickerAt: -Infinity };
+  return { time: 0, stepTimer: 0, heartbeatTimer: 0, lastFlickerAt: -Infinity, crackleTimer: 0 };
 }
 
 export function createCueOutput(): CueOutput {
-  return { step: false, heartbeat: false, heartbeatVolume: 0, flicker: false };
+  return { step: false, heartbeat: false, heartbeatVolume: 0, flicker: false, crackle: false };
 }
 
 export function resetCues(state: CueState): void {
@@ -38,6 +42,7 @@ export function resetCues(state: CueState): void {
   state.stepTimer = 0;
   state.heartbeatTimer = 0;
   state.lastFlickerAt = -Infinity;
+  state.crackleTimer = 0;
 }
 
 /** How far past the heartbeat threshold the enemy is: 0 at the threshold, 1 touching. */
@@ -66,7 +71,8 @@ export function heartbeatVolume(near: number, config: CueConfig): number {
 /**
  * Decides the rhythmic and rate-limited sounds for one logic step:
  * footsteps while moving, a heartbeat that speeds up as the enemy gets closer,
- * and at most one flicker sound per `flickerMinGap` seconds.
+ * at most one flicker sound per `flickerMinGap` seconds, and bulb crackles
+ * that come faster as the battery runs out (`batteryLevel` from `lowBatteryLevel`).
  */
 export function updateCues(
   state: CueState,
@@ -75,6 +81,7 @@ export function updateCues(
   moving: boolean,
   near: number,
   enemyLit: boolean,
+  batteryLevel: number,
   out: CueOutput,
 ): void {
   state.time += stepSeconds;
@@ -82,6 +89,7 @@ export function updateCues(
   out.heartbeat = false;
   out.heartbeatVolume = 0;
   out.flicker = false;
+  out.crackle = false;
 
   if (moving) {
     state.stepTimer -= stepSeconds;
@@ -109,14 +117,30 @@ export function updateCues(
     out.flicker = true;
     state.lastFlickerAt = state.time;
   }
+
+  const crackle = crackleInterval(batteryLevel, config.crackleSlow, config.crackleFast);
+  if (Number.isFinite(crackle)) {
+    state.crackleTimer -= stepSeconds;
+    if (state.crackleTimer <= 0) {
+      out.crackle = true;
+      state.crackleTimer = crackle;
+    }
+  } else {
+    state.crackleTimer = 0;
+  }
 }
 
 /**
- * Volume of the low-battery drone: silent above `lowThreshold`, then growing
- * smoothly as the charge runs out, up to `maxVolume` when empty.
+ * Low-battery level: 0 above `threshold`, then growing smoothly to 1 when empty.
+ * Drives the "dying bulb" sound and darkens the music.
  */
-export function lowBatteryVolume(battery: number, lowThreshold: number, maxVolume: number): number {
-  if (lowThreshold <= 0 || battery > lowThreshold) return 0;
-  const level = 1 - Math.max(0, battery) / lowThreshold;
-  return maxVolume * level;
+export function lowBatteryLevel(battery: number, threshold: number): number {
+  if (threshold <= 0 || battery > threshold) return 0;
+  return Math.min(1, 1 - Math.max(0, battery) / threshold);
+}
+
+/** Seconds between bulb crackles for a low-battery level (0 = none). */
+export function crackleInterval(level: number, slow: number, fast: number): number {
+  if (level <= 0) return Infinity;
+  return slow + (fast - slow) * Math.min(1, level);
 }
