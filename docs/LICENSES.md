@@ -6,6 +6,10 @@ Todos los derechos reservados. Titular: Danny Sivinta.
 
 Todo el arte se dibuja con Canvas 2D y todo el sonido se sintetiza con WebAudio. No se usan imágenes, fuentes, música ni sonidos de terceros.
 
+- **Música:** compuesta por el propio código del juego mientras se juega (`src/audio/music.ts`). No usa melodías ni grabaciones de terceros.
+- **Portada** (`public/cover.png`) y **favicon** (`public/favicon.png`): dibujados con Canvas 2D a partir del estilo del juego, sin imágenes de terceros.
+- **Tipografía:** solo fuentes instaladas en el sistema del jugador; no se incluyen ni se descargan fuentes.
+
 ## Dependencias de desarrollo
 
 El juego no tiene dependencias de runtime. Estas herramientas solo se usan para desarrollar, probar y compilar; no se incluyen en `dist/`.

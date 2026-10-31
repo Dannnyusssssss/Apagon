@@ -1,19 +1,30 @@
 import { defineConfig, type Plugin } from 'vitest/config';
-import { TITLE } from './src/data/meta.ts';
+import { DESCRIPTION, THEME_COLOR, TITLE } from './src/data/meta.ts';
 
-// Injects the game title into index.html so it lives in a single constant.
-function injectTitle(): Plugin {
+function escapeHtml(text: string): string {
+  return text
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;')
+    .replaceAll('"', '&quot;');
+}
+
+// Injects title, description and theme color into index.html so they live in single constants.
+function injectMeta(): Plugin {
   return {
-    name: 'inject-title',
+    name: 'inject-meta',
     transformIndexHtml(html) {
-      return html.replace('%GAME_TITLE%', TITLE);
+      return html
+        .replace('%GAME_TITLE%', escapeHtml(TITLE))
+        .replace('%GAME_DESCRIPTION%', escapeHtml(DESCRIPTION))
+        .replace('%THEME_COLOR%', escapeHtml(THEME_COLOR));
     },
   };
 }
 
 export default defineConfig({
   base: './',
-  plugins: [injectTitle()],
+  plugins: [injectMeta()],
   build: {
     outDir: 'dist',
     sourcemap: false,
