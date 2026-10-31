@@ -10,7 +10,7 @@ const HALF = 14;
 const room = parseRoom(
   {
     id: 'collision',
-    layout: ['#####', '#P..#', '#.#.#', '#...#', '#####'],
+    layout: ['#####', '#P..#', '#.#.#', '#..E#', '#####'],
   },
   T,
 );

@@ -6,4 +6,9 @@ export const TEXTS = {
     leave: 'Tab: salir del juego',
     shiftHint: 'Si Shift abre un aviso del sistema, usa F.',
   },
+  defeat: {
+    title: 'Te ha alcanzado',
+    hint: 'La luz lo detiene. Mantenlo dentro de tu linterna.',
+    retry: 'Reintentar',
+  },
 } as const;

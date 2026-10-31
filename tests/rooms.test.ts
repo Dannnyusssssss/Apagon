@@ -5,13 +5,24 @@ import { isWall, parseRoom } from '../src/game/rooms';
 
 describe('parseRoom', () => {
   it('reads size and spawn', () => {
-    const room = parseRoom({ id: 'r', layout: ['####', '#P.#', '####'] }, 10);
-    expect(room.cols).toBe(4);
+    const room = parseRoom({ id: 'r', layout: ['#####', '#P.E#', '#####'] }, 10);
+    expect(room.cols).toBe(5);
     expect(room.rows).toBe(3);
     expect(room.spawnCol).toBe(1);
     expect(room.spawnRow).toBe(1);
     expect(isWall(room, 2, 1)).toBe(false);
     expect(isWall(room, 0, 0)).toBe(true);
+    expect(isWall(room, 3, 1)).toBe(false);
+    expect(room.enemySpawns).toEqual([{ col: 3, row: 1 }]);
+  });
+
+  it('reads every enemy spawn and requires at least one', () => {
+    const room = parseRoom({ id: 'r', layout: ['#####', '#EPE#', '#####'] }, 10);
+    expect(room.enemySpawns).toEqual([
+      { col: 1, row: 1 },
+      { col: 3, row: 1 },
+    ]);
+    expect(() => parseRoom({ id: 'r', layout: ['####', '#P.#', '####'] }, 10)).toThrow();
   });
 
   it('rejects malformed layouts', () => {
@@ -19,7 +30,7 @@ describe('parseRoom', () => {
     expect(() => parseRoom({ id: 'r', layout: ['###', '#P', '###'] }, 10)).toThrow();
     expect(() => parseRoom({ id: 'r', layout: ['###', '#x#', '###'] }, 10)).toThrow();
     expect(() => parseRoom({ id: 'r', layout: ['###', '#.#', '###'] }, 10)).toThrow();
-    expect(() => parseRoom({ id: 'r', layout: ['####', '#PP#', '####'] }, 10)).toThrow();
+    expect(() => parseRoom({ id: 'r', layout: ['#####', '#PPE#', '#####'] }, 10)).toThrow();
   });
 
   it('the test room is valid and closed by walls', () => {

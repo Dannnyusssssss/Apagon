@@ -1,6 +1,7 @@
 /** Resolution of pre-rendered sprites; drawn scaled, so keep it generous. */
 const LIGHT_SPRITE_SIZE = 512;
 const PLAYER_SPRITE_SIZE = 128;
+const ENEMY_SPRITE_SIZE = 128;
 
 function createCanvas(size: number): [HTMLCanvasElement, CanvasRenderingContext2D] {
   const canvas = document.createElement('canvas');
@@ -59,6 +60,58 @@ export function createPlayerSprite(): HTMLCanvasElement {
   ctx.lineWidth = PLAYER_SPRITE_SIZE * 0.04;
   ctx.strokeStyle = 'rgba(255, 240, 210, 0.55)';
   ctx.stroke();
+
+  return canvas;
+}
+
+/** Bumps along the enemy outline, so it does not read as a clean circle. */
+const ENEMY_OUTLINE_POINTS = 18;
+const ENEMY_OUTLINE_BUMPS = [1, 0.86, 0.97, 0.8, 1, 0.9, 0.78, 0.95, 0.85] as const;
+
+/**
+ * Enemy: a dark, ragged silhouette with a cold rim and two pale points.
+ * Drawn into a 1x1 unit box. No explicit imagery: the shape suggests, it does not show.
+ */
+export function createEnemySprite(): HTMLCanvasElement {
+  const [canvas, ctx] = createCanvas(ENEMY_SPRITE_SIZE);
+  const c = ENEMY_SPRITE_SIZE / 2;
+  const r = c * 0.94;
+
+  ctx.beginPath();
+  for (let i = 0; i < ENEMY_OUTLINE_POINTS; i++) {
+    const angle = (i / ENEMY_OUTLINE_POINTS) * Math.PI * 2;
+    const bump = ENEMY_OUTLINE_BUMPS[i % ENEMY_OUTLINE_BUMPS.length] ?? 1;
+    const x = c + Math.cos(angle) * r * bump;
+    const y = c + Math.sin(angle) * r * bump;
+    if (i === 0) ctx.moveTo(x, y);
+    else ctx.lineTo(x, y);
+  }
+  ctx.closePath();
+
+  const body = ctx.createRadialGradient(c, c * 0.9, r * 0.05, c, c, r);
+  body.addColorStop(0, '#2b2236');
+  body.addColorStop(0.6, '#120e18');
+  body.addColorStop(1, '#050407');
+  ctx.fillStyle = body;
+  ctx.fill();
+
+  ctx.lineWidth = ENEMY_SPRITE_SIZE * 0.035;
+  ctx.strokeStyle = 'rgba(150, 170, 220, 0.4)';
+  ctx.stroke();
+
+  const eyeY = c * 0.86;
+  const eyeR = r * 0.09;
+  for (const side of [-1, 1]) {
+    const eyeX = c + side * r * 0.3;
+    const eye = ctx.createRadialGradient(eyeX, eyeY, 0, eyeX, eyeY, eyeR * 2.2);
+    eye.addColorStop(0, 'rgba(230, 236, 255, 0.95)');
+    eye.addColorStop(0.45, 'rgba(180, 196, 240, 0.45)');
+    eye.addColorStop(1, 'rgba(180, 196, 240, 0)');
+    ctx.fillStyle = eye;
+    ctx.beginPath();
+    ctx.arc(eyeX, eyeY, eyeR * 2.2, 0, Math.PI * 2);
+    ctx.fill();
+  }
 
   return canvas;
 }

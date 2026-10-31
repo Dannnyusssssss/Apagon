@@ -2,9 +2,10 @@ import { createCamera, followTarget } from '../core/camera';
 import { lerp } from '../core/math';
 import { BALANCE } from '../data/balance';
 import { isWall, roomHeight, roomWidth, type RoomGrid } from '../game/rooms';
+import { castVisibility } from '../game/visibility';
 import type { World } from '../game/world';
-import { Lighting } from './lighting';
-import { createPlayerSprite } from './sprites';
+import { Lighting, type LightShape, type ViewTransform } from './lighting';
+import { createEnemySprite, createPlayerSprite } from './sprites';
 
 const COLORS = {
   background: '#050506',
@@ -23,6 +24,16 @@ export class Renderer {
   private readonly ctx: CanvasRenderingContext2D;
   private readonly lighting = new Lighting();
   private readonly playerSprite = createPlayerSprite();
+  private readonly enemySprite = createEnemySprite();
+  private readonly view: ViewTransform = { scale: 1, offsetX: 0, offsetY: 0 };
+  private readonly light: LightShape = {
+    x: 0,
+    y: 0,
+    radius: 0,
+    strength: 1,
+    glowAlpha: 0,
+    polygon: new Float32Array(BALANCE.visibility.rayCount * 2),
+  };
   private readonly camera = createCamera();
   private dpr = 1;
   private cssWidth = 0;
@@ -52,33 +63,50 @@ export class Renderer {
   }
 
   render(world: World, alpha: number): void {
-    const { ctx, camera, dpr } = this;
-    const { room, player } = world;
+    const { ctx, camera, dpr, view, light } = this;
+    const { room, player, enemy, flashlight } = world;
     const px = lerp(player.prevX, player.x, alpha);
     const py = lerp(player.prevY, player.y, alpha);
 
     followTarget(camera, px, py, roomWidth(room), roomHeight(room), this.cssWidth, this.cssHeight);
 
-    const pixelsPerUnit = camera.scale * dpr;
-    const offsetX = this.canvas.width / 2 - camera.x * pixelsPerUnit;
-    const offsetY = this.canvas.height / 2 - camera.y * pixelsPerUnit;
+    view.scale = camera.scale * dpr;
+    view.offsetX = this.canvas.width / 2 - camera.x * view.scale;
+    view.offsetY = this.canvas.height / 2 - camera.y * view.scale;
 
     ctx.setTransform(1, 0, 0, 1, 0, 0);
     ctx.fillStyle = COLORS.background;
     ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
 
-    ctx.setTransform(pixelsPerUnit, 0, 0, pixelsPerUnit, offsetX, offsetY);
+    ctx.setTransform(view.scale, 0, 0, view.scale, view.offsetX, view.offsetY);
     this.drawRoom(room);
-    const r = player.radius;
-    ctx.drawImage(this.playerSprite, px - r, py - r, r * 2, r * 2);
-
-    this.lighting.draw(
-      ctx,
-      px * pixelsPerUnit + offsetX,
-      py * pixelsPerUnit + offsetY,
-      pixelsPerUnit,
-      world.flashlight.on,
+    this.drawBody(
+      this.enemySprite,
+      lerp(enemy.prevX, enemy.x, alpha),
+      lerp(enemy.prevY, enemy.y, alpha),
+      enemy.radius,
     );
+    this.drawBody(this.playerSprite, px, py, player.radius);
+
+    const cfg = BALANCE.flashlight;
+    light.x = px;
+    light.y = py;
+    if (flashlight.on) {
+      light.radius = cfg.radius;
+      light.strength = flashlight.strength;
+      light.glowAlpha = cfg.warmGlowAlpha * flashlight.strength;
+    } else {
+      light.radius = cfg.offHaloRadius;
+      light.strength = cfg.offHaloStrength;
+      light.glowAlpha = 0;
+    }
+    // Same pure visibility the game logic uses, at the interpolated position.
+    castVisibility(room, px, py, light.radius, BALANCE.visibility.wallPenetration, light.polygon);
+    this.lighting.draw(ctx, view, light);
+  }
+
+  private drawBody(sprite: HTMLCanvasElement, x: number, y: number, radius: number): void {
+    this.ctx.drawImage(sprite, x - radius, y - radius, radius * 2, radius * 2);
   }
 
   private drawRoom(room: RoomGrid): void {

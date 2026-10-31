@@ -1,6 +1,6 @@
 /**
  * Room layouts as text grids.
- * '#' wall · '.' floor · 'P' player start (floor).
+ * '#' wall · '.' floor · 'P' player start (floor) · 'E' possible enemy start (floor).
  */
 export interface RoomDef {
   readonly id: string;
@@ -13,7 +13,7 @@ export const TEST_ROOM: RoomDef = {
     '####################',
     '#..................#',
     '#..P...............#',
-    '#..........##......#',
+    '#..........##.....E#',
     '#....#.....##......#',
     '#....#.............#',
     '#....#######.......#',
@@ -22,7 +22,7 @@ export const TEST_ROOM: RoomDef = {
     '#.....##.......#...#',
     '#.....##.......#####',
     '#..................#',
-    '#..................#',
+    '#E................E#',
     '####################',
   ],
 };
