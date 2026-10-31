@@ -5,6 +5,7 @@ import { lightRadius } from './battery';
 import { createEnemy, placeEnemy, type Enemy } from './enemy';
 import { clearEvents, createEvents, type WorldEvents } from './events';
 import { createFlashlight, resetFlashlight, type Flashlight } from './flashlight';
+import { playerMood, type Mood } from './mood';
 import {
   createInventory,
   createItems,
@@ -68,6 +69,8 @@ export interface World {
   elapsedSeconds: number;
   /** 0 (far or none) to 1 (touching): drives the visual "enemy near" signal. */
   enemyNear: number;
+  /** Face of the player character. */
+  mood: Mood;
 }
 
 /** Input already sampled for one logic step. */
@@ -101,6 +104,7 @@ export function createWorld(roomDef: RoomDef, options: WorldOptions = DEFAULT_OP
     status: 'playing',
     elapsedSeconds: 0,
     enemyNear: 0,
+    mood: 'calm',
   };
   resetWorld(world);
   return world;
@@ -113,6 +117,8 @@ export function resetWorld(world: World): void {
 
   player.x = player.prevX = (room.spawnCol + 0.5) * t;
   player.y = player.prevY = (room.spawnRow + 0.5) * t;
+  player.facingX = 0;
+  player.facingY = 1;
 
   const spawn =
     room.enemySpawns[nextInt(world.rng, room.enemySpawns.length)] ?? room.enemySpawns[0];
@@ -128,6 +134,7 @@ export function resetWorld(world: World): void {
   world.status = 'playing';
   world.elapsedSeconds = 0;
   world.enemyNear = 0;
+  world.mood = 'calm';
   clearEvents(world.events);
 }
 
@@ -200,6 +207,7 @@ export function stepWorld(world: World, input: StepInput, stepSeconds: number): 
   enemySystem(room, field, enemy, player, flashlight.on, BALANCE.enemy, stepSeconds);
   flickerSystem(flashlight, enemy.lit, world.settings.reduceFlicker, BALANCE.flicker, stepSeconds);
   world.enemyNear = enemyNearSystem(player, enemy, BALANCE.warning.enemyNearDistance);
+  world.mood = playerMood(flashlight.battery, world.enemyNear, BALANCE.mood);
   if (!world.settings.godMode && catchSystem(player, enemy, BALANCE.enemy.catchDistance)) {
     events.caught++;
     world.status = 'lost';

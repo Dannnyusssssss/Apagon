@@ -3,8 +3,17 @@ export const TEXTS = {
   start: {
     goal: 'Estás a oscuras. Encuentra las llaves y sal por la puerta antes de que algo te alcance.',
     light: 'La luz lo detiene un rato, pero gasta batería. Busca pilas.',
-    controls:
-      'WASD o flechas: moverse · Shift o F: linterna · E: interactuar · Esc o P: pausa · M: sonido',
+    /** Controls shown as key caps: main keys, optional alternative keys, and what they do. */
+    controls: [
+      { keys: ['W', 'A', 'S', 'D'], alt: ['Flechas'], label: 'Moverse' },
+      { keys: ['Shift'], alt: ['F'], label: 'Linterna' },
+      { keys: ['E'], alt: [], label: 'Interactuar' },
+      { keys: ['Esc'], alt: ['P'], label: 'Pausa' },
+      { keys: ['M'], alt: [], label: 'Sonido' },
+    ],
+    /** Word between main and alternative keys. */
+    or: 'o',
+    controlsTitle: 'Controles',
     shiftHint: 'Si Shift abre un aviso del sistema, usa F.',
     /** Short safety notice next to the reduce-flicker option (photosensitivity). */
     lightNotice: 'Contiene oscuridad y cambios suaves de luz. Puedes reducir el parpadeo.',

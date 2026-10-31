@@ -42,25 +42,216 @@ export function createWarmGlowSprite(): HTMLCanvasElement {
   return canvas;
 }
 
-/** Player: a disc with a soft rim light and a highlight. Drawn into a 1x1 unit box. */
+/** Body radius inside the player sprite box, as a fraction of half the box. */
+const PLAYER_BODY = 0.92;
+
+/**
+ * Face layout, as fractions of the drawn body radius (shared with the renderer,
+ * which draws the pupils every frame so they can look where the player walks).
+ */
+export const FACE = {
+  eyeX: 0.34,
+  eyeY: 0.06,
+  /** How far the pupils move toward the facing direction. */
+  look: 0.08,
+  pupil: { calm: 0.1, worried: 0.09, scared: 0.065 },
+} as const;
+
+export type FaceMood = keyof typeof FACE.pupil;
+
+/** Player body seen from above: a warm round character with a tuft of dark hair. */
 export function createPlayerSprite(): HTMLCanvasElement {
   const [canvas, ctx] = createCanvas(PLAYER_SPRITE_SIZE);
   const c = PLAYER_SPRITE_SIZE / 2;
-  const r = c * 0.92;
+  const r = c * PLAYER_BODY;
 
   const body = ctx.createRadialGradient(c * 0.8, c * 0.75, r * 0.1, c, c, r);
-  body.addColorStop(0, '#f4ecdc');
-  body.addColorStop(0.55, '#b9a88c');
-  body.addColorStop(1, '#4a4033');
+  body.addColorStop(0, '#f6e7cf');
+  body.addColorStop(0.6, '#d8b98e');
+  body.addColorStop(1, '#6b5238');
   ctx.fillStyle = body;
   ctx.beginPath();
   ctx.arc(c, c, r, 0, Math.PI * 2);
   ctx.fill();
 
-  ctx.lineWidth = PLAYER_SPRITE_SIZE * 0.04;
-  ctx.strokeStyle = 'rgba(255, 240, 210, 0.55)';
-  ctx.stroke();
+  // Hair: a dark cap over the top of the head with a small fringe.
+  ctx.save();
+  ctx.beginPath();
+  ctx.arc(c, c, r, 0, Math.PI * 2);
+  ctx.clip();
+  const hair = ctx.createLinearGradient(0, c - r, 0, c - r * 0.2);
+  hair.addColorStop(0, '#1d140d');
+  hair.addColorStop(1, '#3a2617');
+  ctx.fillStyle = hair;
+  ctx.beginPath();
+  ctx.moveTo(c - r, c - r * 0.25);
+  ctx.quadraticCurveTo(c - r * 0.55, c - r * 0.42, c - r * 0.2, c - r * 0.3);
+  ctx.quadraticCurveTo(c + r * 0.05, c - r * 0.5, c + r * 0.3, c - r * 0.32);
+  ctx.quadraticCurveTo(c + r * 0.65, c - r * 0.45, c + r, c - r * 0.2);
+  ctx.lineTo(c + r, c - r);
+  ctx.lineTo(c - r, c - r);
+  ctx.closePath();
+  ctx.fill();
+  ctx.restore();
 
+  ctx.lineWidth = PLAYER_SPRITE_SIZE * 0.035;
+  ctx.strokeStyle = 'rgba(255, 236, 200, 0.6)';
+  ctx.beginPath();
+  ctx.arc(c, c, r, 0, Math.PI * 2);
+  ctx.stroke();
+  return canvas;
+}
+
+/**
+ * Face for a mood: eye whites (pupils are drawn live), brows and mouth.
+ * `blink` draws closed eyes instead. Same box as the body sprite.
+ */
+export function createFaceSprite(mood: FaceMood, blink: boolean): HTMLCanvasElement {
+  const [canvas, ctx] = createCanvas(PLAYER_SPRITE_SIZE);
+  const c = PLAYER_SPRITE_SIZE / 2;
+  const r = c * PLAYER_BODY;
+  const ink = '#2a1a10';
+  const eyeR = r * (mood === 'scared' ? 0.2 : mood === 'worried' ? 0.17 : 0.15);
+  const eyeY = c + r * FACE.eyeY;
+  ctx.lineCap = 'round';
+  ctx.lineJoin = 'round';
+
+  for (const side of [-1, 1]) {
+    const ex = c + side * r * FACE.eyeX;
+    if (blink) {
+      ctx.strokeStyle = ink;
+      ctx.lineWidth = r * 0.07;
+      ctx.beginPath();
+      ctx.arc(ex, eyeY - eyeR * 0.3, eyeR, Math.PI * 0.2, Math.PI * 0.8);
+      ctx.stroke();
+    } else {
+      ctx.fillStyle = '#fbf6ec';
+      ctx.strokeStyle = ink;
+      ctx.lineWidth = r * 0.045;
+      ctx.beginPath();
+      ctx.ellipse(ex, eyeY, eyeR, eyeR * 1.15, 0, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.stroke();
+    }
+
+    // Brows: relaxed, raised in the middle (worried) or high and arched (scared).
+    ctx.strokeStyle = ink;
+    ctx.lineWidth = r * 0.07;
+    ctx.beginPath();
+    const browY = eyeY - eyeR * 1.15 - r * 0.1;
+    const inner = ex - side * eyeR * 0.9;
+    const outer = ex + side * eyeR * 0.9;
+    if (mood === 'calm') {
+      ctx.moveTo(inner, browY);
+      ctx.quadraticCurveTo(ex, browY - r * 0.06, outer, browY + r * 0.01);
+    } else if (mood === 'worried') {
+      ctx.moveTo(inner, browY - r * 0.1);
+      ctx.lineTo(outer, browY + r * 0.04);
+    } else {
+      ctx.moveTo(inner, browY - r * 0.08);
+      ctx.quadraticCurveTo(ex, browY - r * 0.2, outer, browY - r * 0.04);
+    }
+    ctx.stroke();
+  }
+
+  // Mouth: a small calm curve, a wavy worried line, or an open "o".
+  const mouthY = c + r * 0.52;
+  ctx.strokeStyle = ink;
+  ctx.lineWidth = r * 0.065;
+  ctx.beginPath();
+  if (mood === 'calm') {
+    ctx.moveTo(c - r * 0.16, mouthY);
+    ctx.quadraticCurveTo(c, mouthY + r * 0.08, c + r * 0.16, mouthY);
+    ctx.stroke();
+  } else if (mood === 'worried') {
+    ctx.moveTo(c - r * 0.2, mouthY + r * 0.02);
+    ctx.quadraticCurveTo(c - r * 0.1, mouthY - r * 0.07, c, mouthY + r * 0.02);
+    ctx.quadraticCurveTo(c + r * 0.1, mouthY + r * 0.1, c + r * 0.2, mouthY + r * 0.01);
+    ctx.stroke();
+  } else {
+    ctx.fillStyle = '#3b1c14';
+    ctx.ellipse(c, mouthY + r * 0.02, r * 0.11, r * 0.14, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.stroke();
+    // A drop of sweat on the side of the head.
+    const dx = c + r * 0.72;
+    const dy = c - r * 0.18;
+    ctx.fillStyle = 'rgba(170, 215, 255, 0.95)';
+    ctx.strokeStyle = 'rgba(60, 110, 160, 0.9)';
+    ctx.lineWidth = r * 0.03;
+    ctx.beginPath();
+    ctx.moveTo(dx, dy - r * 0.2);
+    ctx.quadraticCurveTo(dx + r * 0.12, dy, dx, dy + r * 0.07);
+    ctx.quadraticCurveTo(dx - r * 0.12, dy, dx, dy - r * 0.2);
+    ctx.fill();
+    ctx.stroke();
+  }
+  return canvas;
+}
+
+/** Flashlight state for its sprite: lit lens, weak amber lens, or dark lens. */
+export type FlashlightLook = 'on' | 'low' | 'off';
+
+/** Flashlight width / length in its sprite (pointing to +x). */
+export const FLASHLIGHT_ASPECT = 0.4;
+
+/** Handheld flashlight pointing to +x: metal handle, wider head, lens. */
+export function createFlashlightSprite(look: FlashlightLook): HTMLCanvasElement {
+  const w = 128;
+  const h = Math.round(w * FLASHLIGHT_ASPECT);
+  const canvas = document.createElement('canvas');
+  canvas.width = w;
+  canvas.height = h;
+  const ctx = canvas.getContext('2d');
+  if (!ctx) throw new Error('2D context not available');
+  const cy = h / 2;
+
+  const metal = ctx.createLinearGradient(0, cy - h * 0.3, 0, cy + h * 0.3);
+  metal.addColorStop(0, '#9aa0aa');
+  metal.addColorStop(0.45, '#4d525b');
+  metal.addColorStop(1, '#22252b');
+  ctx.fillStyle = metal;
+  ctx.strokeStyle = '#111317';
+  ctx.lineWidth = 3;
+  // Handle.
+  ctx.beginPath();
+  ctx.rect(6, cy - h * 0.2, 72, h * 0.4);
+  ctx.fill();
+  ctx.stroke();
+  // Grip rings.
+  ctx.strokeStyle = 'rgba(0, 0, 0, 0.45)';
+  for (let x = 18; x < 66; x += 12) {
+    ctx.beginPath();
+    ctx.moveTo(x, cy - h * 0.2);
+    ctx.lineTo(x, cy + h * 0.2);
+    ctx.stroke();
+  }
+  // Head.
+  ctx.fillStyle = metal;
+  ctx.strokeStyle = '#111317';
+  ctx.beginPath();
+  ctx.moveTo(78, cy - h * 0.24);
+  ctx.lineTo(112, cy - h * 0.42);
+  ctx.lineTo(112, cy + h * 0.42);
+  ctx.lineTo(78, cy + h * 0.24);
+  ctx.closePath();
+  ctx.fill();
+  ctx.stroke();
+  // Lens.
+  const lens =
+    look === 'on'
+      ? ['#fffbe8', '#ffd98a']
+      : look === 'low'
+        ? ['#c98a3a', '#6e4318']
+        : ['#3a3d44', '#1c1e22'];
+  const g = ctx.createLinearGradient(110, 0, 124, 0);
+  g.addColorStop(0, lens[0] ?? '#000');
+  g.addColorStop(1, lens[1] ?? '#000');
+  ctx.fillStyle = g;
+  ctx.beginPath();
+  ctx.ellipse(116, cy, 7, h * 0.42, 0, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.stroke();
   return canvas;
 }
 

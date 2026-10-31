@@ -1,6 +1,7 @@
 import { createCamera, followTarget } from '../core/camera';
 import { lerp } from '../core/math';
 import { BALANCE } from '../data/balance';
+import { isBatteryLow } from '../game/battery';
 import { hasAllKeys, isAvailable, type Item } from '../game/items';
 import { isWall, roomHeight, roomWidth, type RoomGrid } from '../game/rooms';
 import { castVisibility } from '../game/visibility';
@@ -12,10 +13,34 @@ import {
   createDoorSprite,
   createEnemySprite,
   createKeySprite,
+  createFaceSprite,
+  createFlashlightSprite,
   createPlayerSprite,
+  FACE,
+  FLASHLIGHT_ASPECT,
+  type FlashlightLook,
 } from './sprites';
 
+/** Character layout, as fractions of the drawn body radius. */
+const HANDS = {
+  radius: 0.24,
+  /** The hand holding the flashlight sits ahead and to the right of the facing direction. */
+  holdAngle: 0.6,
+  holdDistance: 0.85,
+  freeAngle: -1.9,
+  freeDistance: 0.9,
+  /** Flashlight length; it starts a bit behind the hand. */
+  flashlightLength: 1.7,
+  flashlightBack: 0.2,
+} as const;
+/** Blink: once every this many seconds, for a short moment (never when scared). */
+const BLINK_EVERY = 3.7;
+const BLINK_FOR = 0.13;
+
 const COLORS = {
+  skin: '#e2c39a',
+  skinEdge: '#6b5238',
+  pupil: '#1a100a',
   background: '#050506',
   floor: '#2a2621',
   floorLine: 'rgba(0, 0, 0, 0.35)',
@@ -35,6 +60,21 @@ export class Renderer {
   private readonly ctx: CanvasRenderingContext2D;
   private readonly lighting = new Lighting();
   private readonly playerSprite = createPlayerSprite();
+  private readonly faces = {
+    calm: createFaceSprite('calm', false),
+    worried: createFaceSprite('worried', false),
+    scared: createFaceSprite('scared', false),
+  };
+  private readonly blinks = {
+    calm: createFaceSprite('calm', true),
+    worried: createFaceSprite('worried', true),
+    scared: createFaceSprite('scared', true),
+  };
+  private readonly flashlights: Record<FlashlightLook, HTMLCanvasElement> = {
+    on: createFlashlightSprite('on'),
+    low: createFlashlightSprite('low'),
+    off: createFlashlightSprite('off'),
+  };
   private readonly enemySprite = createEnemySprite();
   private readonly keySprite = createKeySprite();
   private readonly batterySprite = createBatterySprite();
@@ -105,7 +145,7 @@ export class Renderer {
       lerp(enemy.prevY, enemy.y, alpha),
       enemy.radius,
     );
-    this.drawBody(this.playerSprite, px, py, player.radius);
+    this.drawPlayer(world, px, py);
 
     const cfg = BALANCE.flashlight;
     light.x = px;
@@ -138,6 +178,66 @@ export class Renderer {
       const sprite = item.kind === 'key' ? this.keySprite : this.batterySprite;
       this.ctx.drawImage(sprite, item.x - half, item.y - half, half * 2, half * 2);
     }
+  }
+
+  /** Free hand, body, face with live pupils, then the flashlight and the hand holding it. */
+  private drawPlayer(world: World, x: number, y: number): void {
+    const { ctx } = this;
+    const { player, flashlight, mood } = world;
+    const r = BALANCE.player.drawRadius;
+    const angle = Math.atan2(player.facingY, player.facingX);
+
+    this.drawHand(x, y, angle + HANDS.freeAngle, HANDS.freeDistance * r, r);
+    this.drawBody(this.playerSprite, x, y, r);
+
+    const blinking = mood !== 'scared' && world.elapsedSeconds % BLINK_EVERY < BLINK_FOR;
+    this.drawBody(blinking ? this.blinks[mood] : this.faces[mood], x, y, r);
+    if (!blinking) {
+      const lookX = player.facingX * FACE.look * r;
+      const lookY = player.facingY * FACE.look * r;
+      const pupil = FACE.pupil[mood] * r;
+      ctx.fillStyle = COLORS.pupil;
+      for (let side = -1; side <= 1; side += 2) {
+        ctx.beginPath();
+        ctx.arc(x + side * FACE.eyeX * r + lookX, y + FACE.eyeY * r + lookY, pupil, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }
+
+    // Flashlight in the right hand, pointing where the player walks.
+    const handAngle = angle + HANDS.holdAngle;
+    const hx = x + Math.cos(handAngle) * HANDS.holdDistance * r;
+    const hy = y + Math.sin(handAngle) * HANDS.holdDistance * r;
+    const look: FlashlightLook = !flashlight.on
+      ? 'off'
+      : isBatteryLow(flashlight.battery, BALANCE.battery.lowThreshold)
+        ? 'low'
+        : 'on';
+    const length = HANDS.flashlightLength * r;
+    const width = length * FLASHLIGHT_ASPECT;
+    ctx.save();
+    ctx.translate(hx, hy);
+    ctx.rotate(angle);
+    ctx.drawImage(this.flashlights[look], -HANDS.flashlightBack * r, -width / 2, length, width);
+    ctx.restore();
+    this.drawHand(hx, hy, 0, 0, r);
+  }
+
+  private drawHand(cx: number, cy: number, angle: number, distance: number, r: number): void {
+    const { ctx } = this;
+    ctx.fillStyle = COLORS.skin;
+    ctx.strokeStyle = COLORS.skinEdge;
+    ctx.lineWidth = r * 0.08;
+    ctx.beginPath();
+    ctx.arc(
+      cx + Math.cos(angle) * distance,
+      cy + Math.sin(angle) * distance,
+      HANDS.radius * r,
+      0,
+      Math.PI * 2,
+    );
+    ctx.fill();
+    ctx.stroke();
   }
 
   private drawBody(sprite: HTMLCanvasElement, x: number, y: number, radius: number): void {

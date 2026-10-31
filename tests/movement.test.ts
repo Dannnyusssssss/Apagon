@@ -54,6 +54,21 @@ describe('movement system', () => {
     expect(world.player.prevY).toBe(world.player.y);
   });
 
+  it('faces the last direction it moved in, also when blocked or stopped', () => {
+    const world = createWorld(OPEN_ROOM);
+    expect([world.player.facingX, world.player.facingY]).toEqual([0, 1]);
+    stepWorld(world, input(-1, 0), STEP);
+    expect([world.player.facingX, world.player.facingY]).toEqual([-1, 0]);
+    stepWorld(world, input(1, -1), STEP);
+    expect(world.player.facingX).toBeCloseTo(Math.SQRT1_2, 9);
+    expect(world.player.facingY).toBeCloseTo(-Math.SQRT1_2, 9);
+    stepWorld(world, input(0, 0), STEP);
+    expect(world.player.facingX).toBeCloseTo(Math.SQRT1_2, 9);
+    // Pushing against a wall still turns the player.
+    for (let i = 0; i < 120; i++) stepWorld(world, input(0, -1), STEP);
+    expect([world.player.facingX, world.player.facingY]).toEqual([0, -1]);
+  });
+
   it('spawns the player at the center of the P tile', () => {
     const world = createWorld(OPEN_ROOM);
     const t = BALANCE.world.tileSize;

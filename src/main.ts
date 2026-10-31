@@ -66,6 +66,7 @@ const screens = new Screens(container, {
   onRetry: startRun,
   onReduceFlicker: (checked) => {
     world.settings.reduceFlicker = checked;
+    applyReduceMotion(checked);
     chosenReduceFlicker = checked;
     screens.setReduceFlicker(checked);
     persist();
@@ -73,8 +74,14 @@ const screens = new Screens(container, {
   onMute: setMuted,
 });
 screens.setReduceFlicker(world.settings.reduceFlicker);
+applyReduceMotion(world.settings.reduceFlicker);
 screens.setMuted(world.settings.muted);
 screens.showStart(false);
+
+/** "Reduce flicker" also stops the menu animations. */
+function applyReduceMotion(on: boolean): void {
+  document.documentElement.classList.toggle('reduce-motion', on);
+}
 
 function persist(): void {
   writeSave(storage, {

@@ -12,9 +12,17 @@ export const BALANCE = {
     tileSize: 48,
   },
   player: {
-    /** Half-size of the collision box; also the drawn radius. */
+    /** Half-size of the collision box. */
     radius: 14,
+    /** Drawn radius of the character, a little bigger so its face reads well. */
+    drawRadius: 16,
     speed: 180,
+  },
+  mood: {
+    worriedBattery: 0.5,
+    scaredBattery: 0.25,
+    worriedNear: 0.3,
+    scaredNear: 0.65,
   },
   flashlight: {
     startsOn: true,

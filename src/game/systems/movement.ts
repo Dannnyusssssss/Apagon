@@ -6,7 +6,10 @@ import type { RoomGrid } from '../rooms';
 const direction: Vec2 = { x: 0, y: 0 };
 const position: Vec2 = { x: 0, y: 0 };
 
-/** Moves the player one fixed step. Diagonal input is not faster. */
+/**
+ * Moves the player one fixed step. Diagonal input is not faster.
+ * The player keeps facing the last direction it was asked to move in.
+ */
 export function movementSystem(
   room: RoomGrid,
   player: Player,
@@ -19,6 +22,9 @@ export function movementSystem(
 
   limitToUnit(axisX, axisY, direction);
   if (direction.x === 0 && direction.y === 0) return;
+  const length = Math.sqrt(direction.x * direction.x + direction.y * direction.y);
+  player.facingX = direction.x / length;
+  player.facingY = direction.y / length;
 
   const distance = player.speed * stepSeconds;
   position.x = player.x;
