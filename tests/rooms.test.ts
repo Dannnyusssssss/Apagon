@@ -32,6 +32,19 @@ describe('parseRoom', () => {
     ]);
   });
 
+  it('validates the battery count and key spots against the areas', () => {
+    const layout = ['#######', '#PKBBE#', '#D#####'];
+    expect(parseRoom({ id: 'r', layout, batteryCount: 1 }, 10).batteryCount).toBe(1);
+    expect(parseRoom({ id: 'r', layout }, 10).batteryCount).toBe(2);
+    expect(() => parseRoom({ id: 'r', layout, batteryCount: 3 }, 10)).toThrow();
+    expect(() => parseRoom({ id: 'r', layout, batteryCount: -1 }, 10)).toThrow();
+    expect(() => parseRoom({ id: 'r', layout, batteryCount: 1.5 }, 10)).toThrow();
+    // With areas, every key spot must be inside one.
+    expect(() =>
+      parseRoom({ id: 'r', layout, areas: [{ id: 'a', col: 3, row: 1, cols: 2, rows: 1 }] }, 10),
+    ).toThrow();
+  });
+
   it('reads named areas and rejects areas outside the map', () => {
     const layout = ['######', '#PK.E#', '#D####'];
     const room = parseRoom(
@@ -61,8 +74,8 @@ describe('parseRoom', () => {
 
   it('the test room is valid and closed by walls', () => {
     const room = parseRoom(HOUSE, 48);
-    expect(room.keys.length).toBe(3);
-    expect(room.batteries.length).toBeGreaterThan(0);
+    expect(room.keys.length).toBeGreaterThanOrEqual(3);
+    expect(room.batteries.length).toBeGreaterThanOrEqual(room.batteryCount);
     for (let col = 0; col < room.cols; col++) {
       expect(isWall(room, col, 0)).toBe(true);
       expect(isWall(room, col, room.rows - 1)).toBe(true);

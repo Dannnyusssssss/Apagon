@@ -10,6 +10,8 @@ export interface Enemy {
   lit: boolean;
   /** Seconds left standing still after leaving the light. */
   freezeTimer: number;
+  /** Seconds of light it is used to; past a limit it creeps on anyway. Fades out of the light. */
+  litTime: number;
   /** Seconds left before the enemy starts moving in this run. */
   startTimer: number;
 }
@@ -24,6 +26,7 @@ export function createEnemy(radius: number, speed: number): Enemy {
     speed,
     lit: false,
     freezeTimer: 0,
+    litTime: 0,
     startTimer: 0,
   };
 }
@@ -35,5 +38,6 @@ export function placeEnemy(enemy: Enemy, x: number, y: number, startDelay: numbe
   enemy.prevY = y;
   enemy.lit = false;
   enemy.freezeTimer = 0;
+  enemy.litTime = 0;
   enemy.startTimer = startDelay;
 }

@@ -1,7 +1,7 @@
 import { createCamera, followTarget } from '../core/camera';
 import { lerp } from '../core/math';
 import { BALANCE } from '../data/balance';
-import { hasAllKeys, type Item } from '../game/items';
+import { hasAllKeys, isAvailable, type Item } from '../game/items';
 import { isWall, roomHeight, roomWidth, type RoomGrid } from '../game/rooms';
 import { castVisibility } from '../game/visibility';
 import { currentLightRadius, type World } from '../game/world';
@@ -134,7 +134,7 @@ export class Renderer {
   private drawItems(items: readonly Item[], tileSize: number): void {
     const half = (tileSize * ITEM_SIZE_FRACTION) / 2;
     for (const item of items) {
-      if (item.taken) continue;
+      if (!isAvailable(item)) continue;
       const sprite = item.kind === 'key' ? this.keySprite : this.batterySprite;
       this.ctx.drawImage(sprite, item.x - half, item.y - half, half * 2, half * 2);
     }

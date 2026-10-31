@@ -10,41 +10,47 @@ export interface AreaDef {
 /**
  * Map layouts as text grids.
  * '#' wall · '.' floor · 'P' player start (floor) · 'E' possible enemy start (floor)
- * 'K' key (floor) · 'B' battery (floor) · 'D' exit door (solid until the run is won).
+ * 'K' possible key spot (floor) · 'B' possible battery spot (floor) · 'D' exit door (solid).
+ *
+ * With areas, each run places one key in every area that has 'K' spots, picked
+ * with the seeded RNG; without areas, every 'K' is a key. `batteryCount` batteries
+ * are picked among the 'B' spots; without it, every 'B' is a battery.
  */
 export interface RoomDef {
   readonly id: string;
   readonly layout: readonly string[];
   readonly areas?: readonly AreaDef[];
+  readonly batteryCount?: number;
 }
 
 /**
  * The house: three rooms with a fixed layout.
  * Entrance (top left, start) · living room (top right) · basement (bottom, exit on the left).
- * One key per room. Two openings lead to the basement, so the enemy can be led around a loop.
+ * Each run: one key per room and 3 batteries, at different spots among the marked ones.
+ * Two openings lead to the basement, so the enemy can be led around a loop.
  */
 export const HOUSE: RoomDef = {
   id: 'house',
   layout: [
     '####################################',
-    '#.........K.#......B...............#',
+    '#.....B...K.#......B..............K#',
     '#...........#.................##...#',
     '#..P........#...##............##...#',
-    '#...............##....#####........#',
-    '#...............##....#####........#',
-    '#...###.....#...##.................#',
+    '#...............##....#####.K......#',
+    '#...............##....#####....B...#',
+    '#...###..K..#...##.................#',
     '#...###.....#...........E........K.#',
-    '#.......B...#......................#',
+    '#K......B...#.......K..............#',
     '#####..#######################..####',
     '#..................................#',
-    '#..............#.........B.##......#',
-    '#.......###....#...........##......#',
+    '#....K.........#.........B.##......#',
+    '#.......###....#...........##.....K#',
     '#.......###....#...........##......#',
     'D..............#...................#',
-    '#...................#####..........#',
-    '#...................#####..........#',
+    '#............B......#####..........#',
+    '#...........K.......#####..........#',
     '#..B..............K..............E.#',
-    '#..................................#',
+    '#.................................B#',
     '####################################',
   ],
   areas: [
@@ -52,4 +58,5 @@ export const HOUSE: RoomDef = {
     { id: 'living', col: 13, row: 1, cols: 22, rows: 8 },
     { id: 'basement', col: 1, row: 10, cols: 34, rows: 9 },
   ],
+  batteryCount: 3,
 };

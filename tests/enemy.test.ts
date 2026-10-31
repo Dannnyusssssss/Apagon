@@ -1,6 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import { BALANCE } from '../src/data/balance';
 import type { RoomDef } from '../src/data/rooms';
+import { createEnemy, placeEnemy } from '../src/game/enemy';
+import { createDistanceField } from '../src/game/pathfinding';
+import { createPlayer } from '../src/game/player';
+import { parseRoom } from '../src/game/rooms';
+import { enemySystem } from '../src/game/systems/enemy';
 import { createWorld, stepWorld, type StepInput, type World } from '../src/game/world';
 
 const STEP = BALANCE.simulation.stepSeconds;
@@ -51,12 +56,13 @@ describe('enemy chase', () => {
     expect(w.enemy.x).toBeLessThan(x);
   });
 
-  it('moves toward the player at its speed while in the dark', () => {
+  it('moves toward the player faster while the flashlight is off', () => {
     const w = world(CORRIDOR, false);
     run(w, START_STEPS);
     const before = distance(w);
     run(w, 30);
-    expect(before - distance(w)).toBeCloseTo(BALANCE.enemy.speed * STEP * 30, 0);
+    const darkSpeed = BALANCE.enemy.speed * BALANCE.enemy.darkSpeedMultiplier;
+    expect(before - distance(w)).toBeCloseTo(darkSpeed * STEP * 30, 0);
   });
 
   it('goes around walls and reaches the player', () => {
@@ -74,6 +80,7 @@ describe('enemy chase', () => {
     run(w, START_STEPS);
     // In range of the light, but behind the wall.
     const t = BALANCE.world.tileSize;
+    w.player.x = 3.5 * t;
     w.enemy.x = 5.5 * t;
     w.enemy.y = 1.5 * t;
     expect(distance(w)).toBeLessThan(LIT_RADIUS);
@@ -85,23 +92,45 @@ describe('enemy chase', () => {
 });
 
 describe('enemy and light', () => {
-  it('stands still while lit and never reaches the player', () => {
-    const w = world(CORRIDOR, true);
-    run(w, 60 * 20);
-    expect(w.status).toBe('playing');
+  const ADAPT_STEPS = Math.round(BALANCE.enemy.lightAdaptSeconds / STEP);
+
+  /** Runs with the light on until the enemy walks into it. */
+  function runUntilLit(w: World): void {
+    for (let i = 0; i < 60 * 20 && !w.enemy.lit; i++) run(w, 1);
     expect(w.enemy.lit).toBe(true);
+  }
+
+  it('stands still while lit, until it gets used to the light', () => {
+    const w = world(CORRIDOR, true);
+    runUntilLit(w);
     // It stops at the edge of the lit radius, give or take one step.
     expect(distance(w)).toBeGreaterThan(LIT_RADIUS - BALANCE.enemy.speed * STEP * 2);
-    const { x, y } = w.enemy;
-    run(w, 60);
+    const x = w.enemy.x;
+    run(w, ADAPT_STEPS - 2);
     expect(w.enemy.x).toBe(x);
-    expect(w.enemy.y).toBe(y);
+  });
+
+  it('then creeps through the light at a fraction of its speed', () => {
+    const w = world(CORRIDOR, true);
+    runUntilLit(w);
+    run(w, ADAPT_STEPS + 1);
+    const before = distance(w);
+    run(w, 30);
+    expect(w.enemy.lit).toBe(true);
+    const creep = BALANCE.enemy.speed * BALANCE.enemy.creepFraction;
+    expect(before - distance(w)).toBeCloseTo(creep * STEP * 30, 0);
+  });
+
+  it('reaches a player who stands still in the light', () => {
+    const w = world(CORRIDOR, true);
+    for (let i = 0; i < 60 * 30 && w.status === 'playing'; i++) run(w, 1);
+    expect(w.status).toBe('lost');
   });
 
   it('keeps still for a moment after leaving the light, then chases again', () => {
     const w = world(CORRIDOR, true);
-    run(w, 60 * 10);
-    expect(w.enemy.lit).toBe(true);
+    runUntilLit(w);
+    run(w, 60);
     w.flashlight.on = false;
     const x = w.enemy.x;
     run(w, FREEZE_STEPS);
@@ -113,7 +142,8 @@ describe('enemy and light', () => {
 
   it('starts again from the full freeze time if lit during the freeze', () => {
     const w = world(CORRIDOR, true);
-    run(w, 60 * 10);
+    runUntilLit(w);
+    run(w, 30);
     w.flashlight.on = false;
     run(w, FREEZE_STEPS - 5);
     w.flashlight.on = true;
@@ -122,6 +152,34 @@ describe('enemy and light', () => {
     const x = w.enemy.x;
     run(w, FREEZE_STEPS);
     expect(w.enemy.x).toBe(x);
+  });
+
+  it('does not reset its habit when it briefly leaves the light', () => {
+    const w = world(CORRIDOR, true);
+    runUntilLit(w);
+    run(w, ADAPT_STEPS - 30);
+    w.flashlight.on = false;
+    run(w, 1);
+    w.flashlight.on = true;
+    const x = w.enemy.x;
+    // About 30 more steps of light are enough, not a full new adaptation.
+    run(w, 20);
+    expect(w.enemy.x).toBe(x);
+    run(w, 40);
+    expect(w.enemy.x).toBeLessThan(x);
+  });
+
+  it('forgets the light gradually while out of it', () => {
+    const room = parseRoom(CORRIDOR, BALANCE.world.tileSize);
+    const field = createDistanceField(room);
+    const enemy = createEnemy(BALANCE.enemy.radius, BALANCE.enemy.speed);
+    placeEnemy(enemy, 10.5 * BALANCE.world.tileSize, 1.5 * BALANCE.world.tileSize, 0);
+    const player = createPlayer(72, 72, BALANCE.player.radius, BALANCE.player.speed);
+    enemy.litTime = 2;
+    for (let i = 0; i < 60; i++) {
+      enemySystem(room, field, enemy, player, false, BALANCE.enemy, STEP);
+    }
+    expect(enemy.litTime).toBeCloseTo(2 - BALANCE.enemy.lightForgetRate, 6);
   });
 });
 

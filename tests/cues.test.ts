@@ -4,6 +4,7 @@ import {
   createCueState,
   heartbeatInterval,
   heartbeatVolume,
+  lowBatteryVolume,
   updateCues,
   type CueConfig,
 } from '../src/audio/cues';
@@ -11,6 +12,7 @@ import { BALANCE } from '../src/data/balance';
 
 const STEP = BALANCE.simulation.stepSeconds;
 const CFG: CueConfig = BALANCE.audio;
+const CFG_AUDIO = BALANCE.audio;
 
 function count(
   seconds: number,
@@ -63,5 +65,25 @@ describe('sound cues', () => {
     const { flickers } = count(seconds, false, 0, true);
     expect(flickers).toBeGreaterThan(0);
     expect(flickers).toBeLessThanOrEqual(Math.ceil(seconds / CFG.flickerMinGap));
+  });
+
+  it('starts the low-battery drone below the threshold and grows smoothly to its cap', () => {
+    const max = CFG_AUDIO.lowBatteryMaxVolume;
+    const low = BALANCE.battery.lowThreshold;
+    expect(lowBatteryVolume(1, low, max)).toBe(0);
+    expect(lowBatteryVolume(low + 0.01, low, max)).toBe(0);
+    expect(lowBatteryVolume(low, low, max)).toBe(0);
+    expect(lowBatteryVolume(low / 2, low, max)).toBeCloseTo(max / 2, 9);
+    expect(lowBatteryVolume(0, low, max)).toBe(max);
+    expect(lowBatteryVolume(-1, low, max)).toBe(max);
+    // No jumps: small charge changes give small volume changes.
+    let previous = 0;
+    for (let b = low; b >= 0; b -= 0.001) {
+      const v = lowBatteryVolume(b, low, max);
+      expect(v).toBeGreaterThanOrEqual(previous);
+      expect(v - previous).toBeLessThan(0.01);
+      previous = v;
+    }
+    expect(max).toBeLessThanOrEqual(BALANCE.audio.masterVolume);
   });
 });

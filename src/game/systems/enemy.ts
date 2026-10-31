@@ -12,16 +12,28 @@ const SIDE_RAY_FRACTION = 0.95;
 const target: Vec2 = { x: 0, y: 0 };
 const position: Vec2 = { x: 0, y: 0 };
 
+export interface EnemyConfig {
+  readonly freezeAfterLightSeconds: number;
+  readonly darkSpeedMultiplier: number;
+  readonly lightAdaptSeconds: number;
+  readonly lightForgetRate: number;
+  readonly creepFraction: number;
+}
+
 /**
  * Moves the enemy one fixed step toward the player.
- * It stands still while lit, and for `freezeAfterLight` seconds after leaving the light.
+ * It stands still while lit and for a moment after leaving the light, but once it
+ * has `lightAdaptSeconds` of light it creeps on at `creepFraction` of its speed.
+ * Out of the light that habit fades at `lightForgetRate`.
+ * While the flashlight is off it moves faster.
  */
 export function enemySystem(
   room: RoomGrid,
   field: DistanceField,
   enemy: Enemy,
   player: Player,
-  freezeAfterLight: number,
+  lightOn: boolean,
+  config: EnemyConfig,
   stepSeconds: number,
 ): void {
   enemy.prevX = enemy.x;
@@ -31,13 +43,18 @@ export function enemySystem(
     enemy.startTimer = Math.max(0, enemy.startTimer - stepSeconds);
     return;
   }
+  let speedFactor = lightOn ? 1 : config.darkSpeedMultiplier;
   if (enemy.lit) {
-    enemy.freezeTimer = freezeAfterLight;
-    return;
-  }
-  if (enemy.freezeTimer > 0) {
-    enemy.freezeTimer = Math.max(0, enemy.freezeTimer - stepSeconds);
-    return;
+    enemy.litTime += stepSeconds;
+    enemy.freezeTimer = config.freezeAfterLightSeconds;
+    if (enemy.litTime < config.lightAdaptSeconds) return;
+    speedFactor = config.creepFraction;
+  } else {
+    enemy.litTime = Math.max(0, enemy.litTime - config.lightForgetRate * stepSeconds);
+    if (enemy.freezeTimer > 0) {
+      enemy.freezeTimer = Math.max(0, enemy.freezeTimer - stepSeconds);
+      return;
+    }
   }
   if (!chooseTarget(room, field, enemy, player, target)) return;
 
@@ -45,7 +62,7 @@ export function enemySystem(
   const dy = target.y - enemy.y;
   const distance = Math.sqrt(dx * dx + dy * dy);
   if (distance === 0) return;
-  const step = Math.min(enemy.speed * stepSeconds, distance);
+  const step = Math.min(enemy.speed * speedFactor * stepSeconds, distance);
 
   position.x = enemy.x;
   position.y = enemy.y;

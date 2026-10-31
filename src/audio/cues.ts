@@ -110,3 +110,13 @@ export function updateCues(
     state.lastFlickerAt = state.time;
   }
 }
+
+/**
+ * Volume of the low-battery drone: silent above `lowThreshold`, then growing
+ * smoothly as the charge runs out, up to `maxVolume` when empty.
+ */
+export function lowBatteryVolume(battery: number, lowThreshold: number, maxVolume: number): number {
+  if (lowThreshold <= 0 || battery > lowThreshold) return 0;
+  const level = 1 - Math.max(0, battery) / lowThreshold;
+  return maxVolume * level;
+}

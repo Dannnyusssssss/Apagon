@@ -7,7 +7,9 @@ import {
   UNREACHABLE,
   updateDistanceField,
 } from '../src/game/pathfinding';
+import { keysRequired } from '../src/game/items';
 import { areaAt, parseRoom, type RoomGrid, type TileCoord } from '../src/game/rooms';
+import { createWorld, type World } from '../src/game/world';
 
 const room = parseRoom(HOUSE, BALANCE.world.tileSize);
 
@@ -31,16 +33,19 @@ function doorApproach(grid: RoomGrid): TileCoord[] {
 }
 
 describe('house map data', () => {
-  it('has three named rooms, three keys and spare batteries', () => {
+  it('has three named rooms, three keys to find and spare battery spots', () => {
     expect(room.areas.map((a) => a.id)).toEqual(['entrance', 'living', 'basement']);
-    expect(room.keys.length).toBe(3);
-    expect(room.batteries.length).toBeGreaterThanOrEqual(3);
+    expect(keysRequired(room)).toBe(3);
+    expect(room.batteryCount).toBe(3);
+    expect(room.batteries.length).toBeGreaterThan(room.batteryCount);
     expect(room.enemySpawns.length).toBeGreaterThanOrEqual(2);
   });
 
-  it('puts one key in each room and the start in the entrance', () => {
-    const keyAreas = room.keys.map((k) => areaAt(room, k.col, k.row)).sort();
-    expect(keyAreas).toEqual(['basement', 'entrance', 'living']);
+  it('has several key spots in every room and the start in the entrance', () => {
+    for (const area of room.areas) {
+      const spots = room.keys.filter((k) => areaAt(room, k.col, k.row) === area.id);
+      expect(spots.length).toBeGreaterThanOrEqual(3);
+    }
     expect(areaAt(room, room.spawnCol, room.spawnRow)).toBe('entrance');
   });
 
@@ -70,43 +75,85 @@ describe('house map data', () => {
     expect(openings).toBe(4);
   });
 
-  it('lets a full run fit in the battery with the batteries on the map', () => {
-    // Shortest tour: start -> each key (best order) -> door, walking tile by tile.
-    const points: TileCoord[] = [{ col: room.spawnCol, row: room.spawnRow }, ...room.keys];
+  it('places one key per room and the battery count, different between runs', () => {
+    const layouts = new Set<string>();
+    const usedSpots = new Set<string>();
+    for (let seed = 1; seed <= 200; seed++) {
+      const w = world(seed);
+      const keys = w.items.filter((i) => i.kind === 'key' && i.active);
+      const batteries = w.items.filter((i) => i.kind === 'battery' && i.active);
+      expect(keys.map((k) => k.area).sort()).toEqual(['basement', 'entrance', 'living']);
+      expect(batteries.length).toBe(room.batteryCount);
+      const placed = [...keys, ...batteries].map((i) => `${String(i.x)},${String(i.y)}`);
+      expect(new Set(placed).size).toBe(placed.length);
+      placed.forEach((p) => usedSpots.add(p));
+      layouts.add(placed.join('|'));
+    }
+    expect(layouts.size).toBeGreaterThan(50);
+    // Every marked spot shows up in some run.
+    expect(usedSpots.size).toBe(room.keys.length + room.batteries.length);
+  });
+
+  it('repeats the same placement for the same seed', () => {
+    const active = (w: World): string => w.items.map((i) => (i.active ? '1' : '0')).join('');
+    expect(active(world(77))).toBe(active(world(77)));
+  });
+
+  it('lets every run fit in the battery, with margin', () => {
     const exit = doorApproach(room)[0];
     if (!exit) throw new Error('door has no approach');
-    const fields = points.map((p) => fieldFrom(p.col, p.row));
-    const dist = (from: number, to: TileCoord): number =>
-      distanceAt(fields[from] ?? fieldFrom(0, 0), to.col, to.row);
-
-    let best = Infinity;
-    // Every visiting order of the three keys (points 1..3).
-    const orders = [
-      [1, 2, 3],
-      [1, 3, 2],
-      [2, 1, 3],
-      [2, 3, 1],
-      [3, 1, 2],
-      [3, 2, 1],
-    ];
-    for (const order of orders) {
-      let total = 0;
-      let at = 0;
-      for (const k of order) {
-        const target = points[k];
-        if (!target) throw new Error('missing key');
-        total += dist(at, target);
-        at = k;
-      }
-      total += dist(at, exit);
-      best = Math.min(best, total);
+    const T = room.tileSize;
+    const charge = 1 + room.batteryCount * BALANCE.battery.rechargeAmount;
+    const lightSeconds = BALANCE.battery.drainSeconds * charge;
+    let shortest = Infinity;
+    let longest = 0;
+    for (let seed = 1; seed <= 60; seed++) {
+      const w = world(seed);
+      const keys = w.items
+        .filter((i) => i.kind === 'key' && i.active)
+        .map((i) => ({ col: Math.floor(i.x / T), row: Math.floor(i.y / T) }));
+      const seconds = (shortestTour(keys, exit) * T) / BALANCE.player.speed;
+      shortest = Math.min(shortest, seconds);
+      longest = Math.max(longest, seconds);
     }
-
-    const seconds = (best * room.tileSize) / BALANCE.player.speed;
-    const charge = 1 + room.batteries.length * BALANCE.battery.rechargeAmount;
-    // Walking the shortest tour with the light always on must leave plenty of margin.
-    expect(seconds).toBeLessThan(BALANCE.battery.drainSeconds * charge * 0.5);
-    // And it is not trivially short.
-    expect(seconds).toBeGreaterThan(15);
+    // Walking the shortest tour with the light always on leaves margin for detours.
+    expect(longest).toBeLessThan(lightSeconds * 0.6);
+    // And no run is trivially short (pure walking, without dodging the enemy).
+    expect(shortest).toBeGreaterThan(12);
   });
 });
+
+function world(seed: number): World {
+  return createWorld(HOUSE, { seed, reduceFlicker: false });
+}
+
+/** Tiles walked from the start through every key (best order) to the exit. */
+function shortestTour(keys: readonly TileCoord[], exit: TileCoord): number {
+  const start = { col: room.spawnCol, row: room.spawnRow };
+  const points = [start, ...keys];
+  const fields = points.map((p) => fieldFrom(p.col, p.row));
+  const dist = (from: number, to: TileCoord): number =>
+    distanceAt(fields[from] ?? fieldFrom(0, 0), to.col, to.row);
+  let best = Infinity;
+  const visit = (at: number, left: readonly number[], total: number): void => {
+    if (left.length === 0) {
+      best = Math.min(best, total + dist(at, exit));
+      return;
+    }
+    for (const next of left) {
+      const target = points[next];
+      if (!target) continue;
+      visit(
+        next,
+        left.filter((n) => n !== next),
+        total + dist(at, target),
+      );
+    }
+  };
+  visit(
+    0,
+    keys.map((_, i) => i + 1),
+    0,
+  );
+  return best;
+}

@@ -1,5 +1,11 @@
 import './style.css';
-import { createCueOutput, createCueState, resetCues, updateCues } from './audio/cues';
+import {
+  createCueOutput,
+  createCueState,
+  lowBatteryVolume,
+  resetCues,
+  updateCues,
+} from './audio/cues';
 import { Sfx } from './audio/sfx';
 import { parseDebugParams } from './core/debugParams';
 import { attachKeyboard, InputState } from './core/input';
@@ -100,12 +106,22 @@ function playStepSounds(stepSeconds: number): void {
   if (events.doorLocked > 0) sfx.locked();
   if (events.doorOpened > 0) sfx.win();
   if (events.caught > 0) sfx.lose();
+  sfx.setLowBattery(
+    world.status === 'playing'
+      ? lowBatteryVolume(
+          world.flashlight.battery,
+          BALANCE.battery.lowThreshold,
+          BALANCE.audio.lowBatteryMaxVolume,
+        )
+      : 0,
+  );
   clearEvents(events);
 }
 
 function startRun(): void {
   resetWorld(world);
   resetCues(cueState);
+  sfx.setLowBattery(0);
   // Started from a click or key press, so the browser allows audio.
   sfx.unlock();
   input.clear();

@@ -7,6 +7,10 @@ const NOISE_SEED = 0x5eed;
 const NOISE_SECONDS = 1;
 /** Time constant for muting and unmuting, so the change is not a click. */
 const MUTE_FADE = 0.05;
+/** Time constant for the low-battery drone, so it swells and fades slowly. */
+const DRONE_FADE = 0.4;
+/** Smallest drone volume change worth sending to the audio thread. */
+const DRONE_EPSILON = 0.002;
 
 type Wave = 'sine' | 'triangle' | 'square';
 
@@ -19,6 +23,8 @@ export class Sfx {
   private ctx: AudioContext | null = null;
   private master: GainNode | null = null;
   private noise: AudioBuffer | null = null;
+  private drone: GainNode | null = null;
+  private droneVolume = 0;
   private muted = false;
 
   /** Call from a click or key handler. Safe to call many times. */
@@ -36,6 +42,15 @@ export class Sfx {
     this.muted = muted;
     if (this.ctx && this.master) {
       this.master.gain.setTargetAtTime(this.volume(), this.ctx.currentTime, MUTE_FADE);
+    }
+  }
+
+  /** Sets the low-battery drone volume (0 = silent). Cheap to call every step. */
+  setLowBattery(volume: number): void {
+    if (Math.abs(volume - this.droneVolume) < DRONE_EPSILON) return;
+    this.droneVolume = volume;
+    if (this.ctx && this.drone) {
+      this.drone.gain.setTargetAtTime(volume, this.ctx.currentTime, DRONE_FADE);
     }
   }
 
@@ -116,6 +131,7 @@ export class Sfx {
       this.master = master;
       this.noise = createNoise(ctx);
       this.startAmbient();
+      this.startDrone();
     } catch {
       this.ctx = null;
       this.master = null;
@@ -139,6 +155,58 @@ export class Sfx {
       osc.connect(filter);
       osc.start();
     }
+  }
+
+  /**
+   * Low-battery drone: two low tones a little apart (slow beating), a dissonant
+   * third tone and a faint electric buzz, with a slow swell. Starts at the last requested volume.
+   */
+  private startDrone(): void {
+    const { ctx, master } = this;
+    if (!ctx || !master) return;
+    const drone = ctx.createGain();
+    drone.gain.value = this.droneVolume;
+    drone.connect(master);
+
+    const tremolo = ctx.createGain();
+    tremolo.gain.value = 0.65;
+    tremolo.connect(drone);
+    const lfo = ctx.createOscillator();
+    lfo.frequency.value = 0.35;
+    const depth = ctx.createGain();
+    depth.gain.value = 0.35;
+    lfo.connect(depth).connect(tremolo.gain);
+    lfo.start();
+
+    const low = ctx.createBiquadFilter();
+    low.type = 'lowpass';
+    low.frequency.value = 320;
+    low.connect(tremolo);
+    for (const [freq, wave] of [
+      [46, 'sine'],
+      [48.7, 'sine'],
+      [65.4, 'triangle'],
+    ] as const) {
+      const osc = ctx.createOscillator();
+      osc.type = wave;
+      osc.frequency.value = freq;
+      osc.connect(low);
+      osc.start();
+    }
+
+    const buzz = ctx.createOscillator();
+    buzz.type = 'sawtooth';
+    buzz.frequency.value = 120;
+    const buzzFilter = ctx.createBiquadFilter();
+    buzzFilter.type = 'bandpass';
+    buzzFilter.frequency.value = 2400;
+    buzzFilter.Q.value = 8;
+    const buzzGain = ctx.createGain();
+    buzzGain.gain.value = 0.12;
+    buzz.connect(buzzFilter).connect(buzzGain).connect(tremolo);
+    buzz.start();
+
+    this.drone = drone;
   }
 
   private tone(

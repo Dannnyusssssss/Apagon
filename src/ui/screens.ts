@@ -93,7 +93,7 @@ export class Screens {
     this.start.text(TEXTS.start.light);
     this.start.text(TEXTS.start.controls, 'screen__text screen__text--small');
     this.start.text(TEXTS.start.shiftHint, 'screen__text screen__text--small');
-    this.start.text(TEXTS.start.contentNote, 'screen__note');
+    this.start.text(TEXTS.start.lightNotice, 'screen__text screen__text--small');
     this.reduceBoxes.push(
       this.start.checkbox(TEXTS.settings.reduceFlicker, handlers.onReduceFlicker),
     );

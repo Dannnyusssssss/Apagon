@@ -18,7 +18,7 @@ export const BALANCE = {
   },
   flashlight: {
     startsOn: true,
-    radius: 230,
+    radius: 200,
     /** Faint halo around the player while the flashlight is off. */
     offHaloRadius: 44,
     offHaloStrength: 0.35,
@@ -27,11 +27,11 @@ export const BALANCE = {
   },
   battery: {
     /** Seconds of light from a full charge. */
-    drainSeconds: 50,
+    drainSeconds: 35,
     /** Light radius at an almost empty battery, as a fraction of the full radius. */
     minRadiusFraction: 0.45,
     /** Charge added by one battery pickup (1 = full). */
-    rechargeAmount: 0.35,
+    rechargeAmount: 0.3,
     /** At or below this charge the HUD warns about low battery. */
     lowThreshold: 0.25,
   },
@@ -46,12 +46,23 @@ export const BALANCE = {
   enemy: {
     /** Half-size of the collision box; also the drawn radius. */
     radius: 15,
-    /** Slower than the player, so running away is possible. */
-    speed: 145,
+    /** A bit slower than the player while the flashlight is on. */
+    speed: 165,
+    /** Speed multiplier while the flashlight is off: turning it off to save battery is risky. */
+    darkSpeedMultiplier: 1.2,
     /** Seconds the enemy waits before moving at the start of a run. */
-    startDelaySeconds: 3,
+    startDelaySeconds: 2,
     /** Seconds the enemy stays still after leaving the light. */
-    freezeAfterLightSeconds: 0.6,
+    freezeAfterLightSeconds: 0.35,
+    /** After this many seconds in the light, the enemy gets used to it and creeps on. */
+    lightAdaptSeconds: 3,
+    /**
+     * Seconds of light forgotten per second out of it. Gradual, so brief exits
+     * (a shrinking light, a step back) do not reset the habit.
+     */
+    lightForgetRate: 1,
+    /** Fraction of its speed the enemy keeps while creeping through the light. */
+    creepFraction: 0.25,
     /** Center distance at which the enemy reaches the player. */
     catchDistance: 26,
   },
@@ -97,6 +108,8 @@ export const BALANCE = {
     pickupVolume: 0.22,
     lockedVolume: 0.18,
     endVolume: 0.22,
+    /** Dissonant drone while the battery is low; grows as the charge runs out. */
+    lowBatteryMaxVolume: 0.12,
   },
   lighting: {
     /** Opacity of the darkness layer (1 = pure black). */

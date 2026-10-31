@@ -5,7 +5,14 @@ import { lightRadius } from './battery';
 import { createEnemy, placeEnemy, type Enemy } from './enemy';
 import { clearEvents, createEvents, type WorldEvents } from './events';
 import { createFlashlight, resetFlashlight, type Flashlight } from './flashlight';
-import { createInventory, createItems, resetItems, type Inventory, type Item } from './items';
+import {
+  createInventory,
+  createItems,
+  keysRequired,
+  placeItems,
+  type Inventory,
+  type Item,
+} from './items';
 import {
   createDistanceField,
   invalidateDistanceField,
@@ -81,7 +88,7 @@ export function createWorld(roomDef: RoomDef, options: WorldOptions = DEFAULT_OP
     flashlight: createFlashlight(BALANCE.flashlight.startsOn),
     enemy: createEnemy(BALANCE.enemy.radius, BALANCE.enemy.speed),
     items: createItems(room),
-    inventory: createInventory(room.keys.length),
+    inventory: createInventory(keysRequired(room)),
     interact: createInteractState(),
     field: createDistanceField(room),
     rng: createRng(options.seed),
@@ -113,7 +120,7 @@ export function resetWorld(world: World): void {
   placeEnemy(enemy, (spawn.col + 0.5) * t, (spawn.row + 0.5) * t, BALANCE.enemy.startDelaySeconds);
 
   resetFlashlight(world.flashlight, BALANCE.flashlight.startsOn);
-  resetItems(world.items);
+  placeItems(room, world.items, world.rng);
   world.inventory.keys = 0;
   world.interact.prompt = 'none';
   world.interact.itemIndex = -1;
@@ -190,7 +197,7 @@ export function stepWorld(world: World, input: StepInput, stepSeconds: number): 
   const litRadius = currentLightRadius(flashlight) * BALANCE.visibility.litRadiusFraction;
   visibilitySystem(room, flashlight, player, enemy, litRadius);
   if (enemy.lit && !wasLit) events.enemyLit++;
-  enemySystem(room, field, enemy, player, BALANCE.enemy.freezeAfterLightSeconds, stepSeconds);
+  enemySystem(room, field, enemy, player, flashlight.on, BALANCE.enemy, stepSeconds);
   flickerSystem(flashlight, enemy.lit, world.settings.reduceFlicker, BALANCE.flicker, stepSeconds);
   world.enemyNear = enemyNearSystem(player, enemy, BALANCE.warning.enemyNearDistance);
   if (!world.settings.godMode && catchSystem(player, enemy, BALANCE.enemy.catchDistance)) {

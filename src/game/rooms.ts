@@ -20,10 +20,12 @@ export interface RoomGrid {
   readonly spawnRow: number;
   /** Possible enemy starts, in tile coordinates. At least one. */
   readonly enemySpawns: readonly TileCoord[];
-  /** Keys to collect, in tile coordinates. At least one. */
+  /** Possible key spots, in tile coordinates. At least one. */
   readonly keys: readonly TileCoord[];
-  /** Battery pickups, in tile coordinates. */
+  /** Possible battery spots, in tile coordinates. */
   readonly batteries: readonly TileCoord[];
+  /** Batteries placed in each run, among `batteries`. */
+  readonly batteryCount: number;
   /** The single exit door, next to at least one floor tile. */
   readonly door: TileCoord;
   /** Named rooms of the map (may be empty). */
@@ -94,6 +96,7 @@ export function parseRoom(def: RoomDef, tileSize: number): RoomGrid {
     enemySpawns,
     keys,
     batteries,
+    batteryCount: def.batteryCount ?? batteries.length,
     door: exit,
     areas: def.areas ?? [],
   };
@@ -106,6 +109,17 @@ export function parseRoom(def: RoomDef, tileSize: number): RoomGrid {
       area.col + area.cols <= cols &&
       area.row + area.rows <= rows;
     if (!inside) throw new Error(`Room "${def.id}" area "${area.id}" is outside the map`);
+  }
+  if (room.areas.length > 0) {
+    for (const key of keys) {
+      if (areaAt(room, key.col, key.row) === null) {
+        throw new Error(`Room "${def.id}" has a key spot outside every area`);
+      }
+    }
+  }
+  const count = room.batteryCount;
+  if (!Number.isInteger(count) || count < 0 || count > batteries.length) {
+    throw new Error(`Room "${def.id}" battery count does not match its battery spots`);
   }
   if (!hasFloorNeighbour(room, exit)) throw new Error(`Room "${def.id}" door cannot be reached`);
   return room;

@@ -1,6 +1,6 @@
 import { rechargeBattery } from '../battery';
 import type { Flashlight } from '../flashlight';
-import { hasAllKeys, type Inventory, type Item } from '../items';
+import { hasAllKeys, isAvailable, type Inventory, type Item } from '../items';
 import type { Player } from '../player';
 import type { RoomGrid } from '../rooms';
 
@@ -63,7 +63,7 @@ function findTarget(
   let bestSq = reach * reach;
   for (let i = 0; i < items.length; i++) {
     const item = items[i];
-    if (!item || item.taken) continue;
+    if (!item || !isAvailable(item)) continue;
     const dx = item.x - player.x;
     const dy = item.y - player.y;
     const sq = dx * dx + dy * dy;
