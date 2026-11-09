@@ -1,5 +1,6 @@
 import { createCamera, followTarget } from '../core/camera';
 import { lerp, lerpAngle } from '../core/math';
+import { renderScale } from '../core/resolution';
 import { BALANCE } from '../data/balance';
 import { levelAt, type LevelDef, type LevelPalette } from '../data/levels';
 import { isBatteryLow } from '../game/battery';
@@ -125,7 +126,13 @@ export class Renderer {
   };
   private readonly lights: readonly LightShape[] = [this.beam, this.halo];
   private readonly camera = createCamera();
+  /** Canvas pixels per CSS pixel. */
   private dpr = 1;
+  /** The part of the map on screen this frame, in world units. */
+  private viewLeft = 0;
+  private viewTop = 0;
+  private viewRight = 0;
+  private viewBottom = 0;
   private cssWidth = 0;
   private cssHeight = 0;
 
@@ -144,11 +151,17 @@ export class Renderer {
     this.hud.setExit(level.exit);
   }
 
-  /** Matches the backing store to the element size and devicePixelRatio. */
+  /** Matches the backing store to the element size and the capped pixel density. */
   resize(): void {
-    this.dpr = window.devicePixelRatio || 1;
     this.cssWidth = Math.max(1, this.canvas.clientWidth);
     this.cssHeight = Math.max(1, this.canvas.clientHeight);
+    this.dpr = renderScale(
+      window.devicePixelRatio,
+      this.cssWidth,
+      this.cssHeight,
+      BALANCE.view.maxRenderScale,
+      BALANCE.view.maxRenderPixels,
+    );
     const w = Math.round(this.cssWidth * this.dpr);
     const h = Math.round(this.cssHeight * this.dpr);
     if (this.canvas.width !== w || this.canvas.height !== h) {
@@ -174,27 +187,48 @@ export class Renderer {
     view.offsetX = this.canvas.width / 2 - camera.x * view.scale;
     view.offsetY = this.canvas.height / 2 - camera.y * view.scale;
 
-    ctx.setTransform(1, 0, 0, 1, 0, 0);
-    ctx.fillStyle = this.palette.background;
-    ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+    this.viewLeft = -view.offsetX / view.scale;
+    this.viewTop = -view.offsetY / view.scale;
+    this.viewRight = (this.canvas.width - view.offsetX) / view.scale;
+    this.viewBottom = (this.canvas.height - view.offsetY) / view.scale;
+
+    // Usually the map covers the whole screen and this would be drawn over at once.
+    if (
+      this.viewLeft < 0 ||
+      this.viewTop < 0 ||
+      this.viewRight > roomWidth(room) ||
+      this.viewBottom > roomHeight(room)
+    ) {
+      ctx.setTransform(1, 0, 0, 1, 0, 0);
+      ctx.fillStyle = this.palette.background;
+      ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+    }
 
     ctx.setTransform(view.scale, 0, 0, view.scale, view.offsetX, view.offsetY);
     this.drawRoom(room);
     this.drawDoor(world);
     this.drawItems(world.items, room.tileSize);
     for (const enemy of world.enemies) {
-      this.drawBody(
-        this.enemySprite,
-        lerp(enemy.prevX, enemy.x, alpha),
-        lerp(enemy.prevY, enemy.y, alpha),
-        enemy.radius,
-      );
+      const ex = lerp(enemy.prevX, enemy.x, alpha);
+      const ey = lerp(enemy.prevY, enemy.y, alpha);
+      if (this.isOnScreen(ex, ey, enemy.radius)) {
+        this.drawBody(this.enemySprite, ex, ey, enemy.radius);
+      }
     }
     this.drawPlayer(world, px, py, aim);
 
     const count = this.updateLights(world, px, py, aim);
     this.lighting.draw(ctx, view, this.lights, count);
     this.hud.draw(ctx, world, this.canvas.width, this.canvas.height);
+  }
+
+  private isOnScreen(x: number, y: number, radius: number): boolean {
+    return (
+      x + radius > this.viewLeft &&
+      x - radius < this.viewRight &&
+      y + radius > this.viewTop &&
+      y - radius < this.viewBottom
+    );
   }
 
   /**
@@ -250,7 +284,7 @@ export class Renderer {
   private drawItems(items: readonly Item[], tileSize: number): void {
     const half = (tileSize * ITEM_SIZE_FRACTION) / 2;
     for (const item of items) {
-      if (!isAvailable(item)) continue;
+      if (!isAvailable(item) || !this.isOnScreen(item.x, item.y, half)) continue;
       const sprite = item.kind === 'key' ? this.keySprite : this.batterySprite;
       this.ctx.drawImage(sprite, item.x - half, item.y - half, half * 2, half * 2);
     }
@@ -321,37 +355,34 @@ export class Renderer {
   }
 
   private drawRoom(room: RoomGrid): void {
-    const { ctx, palette, view } = this;
+    const { ctx, palette } = this;
     const t = room.tileSize;
 
+    // Only the tiles on screen: the larger maps have many more than fit in view.
+    const firstCol = Math.max(0, Math.floor(this.viewLeft / t));
+    const firstRow = Math.max(0, Math.floor(this.viewTop / t));
+    const lastCol = Math.min(room.cols - 1, Math.floor(this.viewRight / t));
+    const lastRow = Math.min(room.rows - 1, Math.floor(this.viewBottom / t));
+    const left = firstCol * t;
+    const top = firstRow * t;
+    const right = (lastCol + 1) * t;
+    const bottom = (lastRow + 1) * t;
+
     ctx.fillStyle = palette.floor;
-    ctx.fillRect(0, 0, room.cols * t, room.rows * t);
+    ctx.fillRect(left, top, right - left, bottom - top);
 
     ctx.strokeStyle = palette.floorLine;
     ctx.lineWidth = 1;
     ctx.beginPath();
-    for (let col = 1; col < room.cols; col++) {
-      ctx.moveTo(col * t, 0);
-      ctx.lineTo(col * t, room.rows * t);
+    for (let col = Math.max(1, firstCol); col <= lastCol; col++) {
+      ctx.moveTo(col * t, top);
+      ctx.lineTo(col * t, bottom);
     }
-    for (let row = 1; row < room.rows; row++) {
-      ctx.moveTo(0, row * t);
-      ctx.lineTo(room.cols * t, row * t);
+    for (let row = Math.max(1, firstRow); row <= lastRow; row++) {
+      ctx.moveTo(left, row * t);
+      ctx.lineTo(right, row * t);
     }
     ctx.stroke();
-
-    // Only the tiles on screen: the larger maps have many more than fit in view.
-    const worldSize = t * view.scale;
-    const firstCol = Math.max(0, Math.floor(-view.offsetX / worldSize));
-    const firstRow = Math.max(0, Math.floor(-view.offsetY / worldSize));
-    const lastCol = Math.min(
-      room.cols - 1,
-      Math.floor((this.canvas.width - view.offsetX) / worldSize),
-    );
-    const lastRow = Math.min(
-      room.rows - 1,
-      Math.floor((this.canvas.height - view.offsetY) / worldSize),
-    );
 
     for (let row = firstRow; row <= lastRow; row++) {
       for (let col = firstCol; col <= lastCol; col++) {

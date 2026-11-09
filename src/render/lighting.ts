@@ -37,11 +37,14 @@ export interface LightShape {
   polygon: Float32Array;
 }
 
+const LAYER_SCALE = BALANCE.lighting.layerScale;
+
 /**
  * Darkness layer: an offscreen canvas filled almost black every frame, with
  * each light cut out by a pre-rendered mask (round or cone) clipped to its
- * visibility polygon, so walls cast shadows.
- * Nothing is allocated per frame and no per-pixel work is done.
+ * visibility polygon, so walls cast shadows. It has a lower resolution than the
+ * screen and is stretched over it: it holds only soft shapes, and it is the costliest
+ * part of a frame. Nothing is allocated per frame and no per-pixel work is done.
  */
 export class Lighting {
   private readonly layer: HTMLCanvasElement;
@@ -59,8 +62,8 @@ export class Lighting {
   }
 
   resize(widthPx: number, heightPx: number): void {
-    this.layer.width = widthPx;
-    this.layer.height = heightPx;
+    this.layer.width = Math.max(1, Math.ceil(widthPx * LAYER_SCALE));
+    this.layer.height = Math.max(1, Math.ceil(heightPx * LAYER_SCALE));
   }
 
   /** Draws the darkness, with the first `count` lights cut out, over `target`. */
@@ -73,9 +76,9 @@ export class Lighting {
     const ctx = this.layerCtx;
 
     ctx.setTransform(1, 0, 0, 1, 0, 0);
-    ctx.globalCompositeOperation = 'source-over';
+    // Replaces every pixel, so the layer does not have to be cleared first.
+    ctx.globalCompositeOperation = 'copy';
     ctx.globalAlpha = 1;
-    ctx.clearRect(0, 0, this.layer.width, this.layer.height);
     ctx.fillStyle = DARKNESS_COLOR;
     ctx.fillRect(0, 0, this.layer.width, this.layer.height);
 
@@ -83,7 +86,8 @@ export class Lighting {
       const light = lights[i];
       if (!light) continue;
       ctx.save();
-      ctx.setTransform(view.scale, 0, 0, view.scale, view.offsetX, view.offsetY);
+      const scale = view.scale * LAYER_SCALE;
+      ctx.setTransform(scale, 0, 0, scale, view.offsetX * LAYER_SCALE, view.offsetY * LAYER_SCALE);
       tracePolygon(ctx, light.polygon);
       ctx.clip();
       ctx.globalCompositeOperation = 'destination-out';
@@ -107,7 +111,13 @@ export class Lighting {
 
     target.save();
     target.setTransform(1, 0, 0, 1, 0, 0);
-    target.drawImage(this.layer, 0, 0);
+    target.drawImage(
+      this.layer,
+      0,
+      0,
+      this.layer.width / LAYER_SCALE,
+      this.layer.height / LAYER_SCALE,
+    );
     target.restore();
   }
 
