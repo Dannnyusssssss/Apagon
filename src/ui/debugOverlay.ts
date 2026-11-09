@@ -25,19 +25,20 @@ export class DebugOverlay {
     this.steps++;
   }
 
-  frame(now: number, world: World, state: string): void {
+  frame(now: number, world: World, state: string, level: string): void {
     this.frames++;
     if (this.lastRefresh === 0) this.lastRefresh = now;
     const elapsed = now - this.lastRefresh;
     if (elapsed < REFRESH_MS) return;
 
-    const { player, enemy, flashlight, room } = world;
+    const { player, nearestEnemy: enemy, flashlight, room } = world;
     const t = room.tileSize;
     const col = Math.floor(player.x / t);
     const row = Math.floor(player.y / t);
     const seconds = elapsed / 1000;
     this.root.textContent = [
       `fps ${(this.frames / seconds).toFixed(0)} · steps/s ${(this.steps / seconds).toFixed(0)}`,
+      `level ${level} · enemies ${String(world.enemies.length)}`,
       `state ${state} · world ${world.status} · t ${world.elapsedSeconds.toFixed(1)}s`,
       `area ${areaAt(room, col, row) ?? '-'} · tile ${String(col)},${String(row)}`,
       `battery ${(flashlight.battery * 100).toFixed(0)}% · light ${flashlight.on ? 'on' : 'off'} · strength ${flashlight.strength.toFixed(2)}`,

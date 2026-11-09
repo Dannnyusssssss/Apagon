@@ -2,6 +2,20 @@ import { turnToward, type Vec2 } from '../../core/math';
 import type { Enemy } from '../enemy';
 import type { Player } from '../player';
 
+/** The enemy closest to the player, for the sound and the warnings. Keeps `current` on a tie. */
+export function nearestEnemy(player: Player, enemies: readonly Enemy[], current: Enemy): Enemy {
+  let best = current;
+  let bestDistance = Math.hypot(current.x - player.x, current.y - player.y);
+  for (const enemy of enemies) {
+    const distance = Math.hypot(enemy.x - player.x, enemy.y - player.y);
+    if (distance < bestDistance) {
+      best = enemy;
+      bestDistance = distance;
+    }
+  }
+  return best;
+}
+
 /**
  * How close the enemy is, from 0 (at `nearDistance` or farther) to 1 (touching).
  * Drives the visual "enemy near" signal, so the game is playable without sound.

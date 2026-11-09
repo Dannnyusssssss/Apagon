@@ -10,6 +10,7 @@ import {
   type StepInput,
   type World,
 } from '../src/game/world';
+import { firstEnemy } from './helpers';
 
 const STEP = BALANCE.simulation.stepSeconds;
 const IDLE: StepInput = { axisX: 0, axisY: 0, toggleFlashlight: false, interact: false };
@@ -22,7 +23,8 @@ const CORRIDOR: RoomDef = {
 /** Player in the middle of the corridor, facing and aiming right, enemy ready to move. */
 function setup(classicLight: boolean, enemyOffsetX: number): World {
   const w = createWorld(CORRIDOR, { seed: 1, reduceFlicker: false, classicLight });
-  const { player, enemy, flashlight } = w;
+  const { player, flashlight } = w;
+  const enemy = firstEnemy(w);
   player.x = player.prevX = 300;
   player.y = player.prevY = 72;
   player.facingX = 1;
@@ -39,8 +41,8 @@ describe('cone light in the world', () => {
   it('stops the enemy in front of the beam', () => {
     const w = setup(false, 100);
     stepWorld(w, IDLE, STEP);
-    expect(w.enemy.lit).toBe(true);
-    expect(w.enemy.x).toBe(400);
+    expect(firstEnemy(w).lit).toBe(true);
+    expect(firstEnemy(w).x).toBe(400);
   });
 
   it('does not stop the enemy behind the player, even inside the halo', () => {
@@ -48,15 +50,15 @@ describe('cone light in the world', () => {
     expect(Math.abs(behind)).toBeLessThan(BALANCE.flashlight.haloRadius);
     const w = setup(false, behind);
     stepWorld(w, IDLE, STEP);
-    expect(w.enemy.lit).toBe(false);
-    expect(w.enemy.x).toBeGreaterThan(300 + behind);
+    expect(firstEnemy(w).lit).toBe(false);
+    expect(firstEnemy(w).x).toBeGreaterThan(300 + behind);
   });
 
   it('stops the enemy behind the player with the classic light', () => {
     const w = setup(true, -40);
     stepWorld(w, IDLE, STEP);
-    expect(w.enemy.lit).toBe(true);
-    expect(w.enemy.x).toBe(260);
+    expect(firstEnemy(w).lit).toBe(true);
+    expect(firstEnemy(w).x).toBe(260);
   });
 
   it('lights the enemy once the beam turns toward it', () => {
@@ -64,9 +66,9 @@ describe('cone light in the world', () => {
     w.player.facingX = -1;
     let litAt = -1;
     for (let i = 0; i < 30 && litAt < 0; i++) {
-      w.enemy.startTimer = 0;
+      firstEnemy(w).startTimer = 0;
       stepWorld(w, IDLE, STEP);
-      if (w.enemy.lit) litAt = i;
+      if (firstEnemy(w).lit) litAt = i;
     }
     // It takes a few steps to turn (it does not snap), then the enemy is lit.
     expect(litAt).toBeGreaterThan(5);
@@ -95,18 +97,18 @@ describe('light mode difficulty', () => {
   it('applies the enemy speed at once when the mode changes, and keeps it on reset', () => {
     const w = createWorld(CORRIDOR, { seed: 1, reduceFlicker: false });
     expect(w.settings.classicLight).toBe(false);
-    expect(w.enemy.speed).toBe(BALANCE.lightModes.cone.enemySpeed);
+    expect(firstEnemy(w).speed).toBe(BALANCE.lightModes.cone.enemySpeed);
     setLightMode(w, true);
-    expect(w.enemy.speed).toBe(BALANCE.enemy.speed);
+    expect(firstEnemy(w).speed).toBe(BALANCE.enemy.speed);
     resetWorld(w);
     expect(w.settings.classicLight).toBe(true);
-    expect(w.enemy.speed).toBe(BALANCE.enemy.speed);
+    expect(firstEnemy(w).speed).toBe(BALANCE.enemy.speed);
   });
 
   it('drains the battery at the rate of each mode', () => {
     for (const classic of [true, false]) {
       const w = setup(classic, 250);
-      w.enemy.startTimer = 999;
+      firstEnemy(w).startTimer = 999;
       for (let i = 0; i < 60; i++) stepWorld(w, IDLE, STEP);
       const drain = lightModeProfile(classic).battery.drainSeconds;
       expect(w.flashlight.battery).toBeCloseTo(1 - 1 / drain, 6);

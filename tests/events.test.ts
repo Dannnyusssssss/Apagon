@@ -3,6 +3,7 @@ import { BALANCE } from '../src/data/balance';
 import type { RoomDef } from '../src/data/rooms';
 import { clearEvents } from '../src/game/events';
 import { createWorld, stepWorld, type StepInput, type World } from '../src/game/world';
+import { firstEnemy } from './helpers';
 
 const STEP = BALANCE.simulation.stepSeconds;
 const T = BALANCE.world.tileSize;
@@ -18,7 +19,7 @@ function input(partial: Partial<StepInput> = {}): StepInput {
 
 function world(godMode = false): World {
   const w = createWorld(ROOM, { seed: 1, reduceFlicker: false, classicLight: true, godMode });
-  w.enemy.startTimer = 1e9;
+  firstEnemy(w).startTimer = 1e9;
   return w;
 }
 
@@ -58,8 +59,8 @@ describe('world events (for sound)', () => {
   it('report the enemy entering the light once, and an empty battery', () => {
     const w = world();
     w.flashlight.on = true;
-    w.enemy.x = w.player.x + 3 * T;
-    w.enemy.y = w.player.y;
+    firstEnemy(w).x = w.player.x + 3 * T;
+    firstEnemy(w).y = w.player.y;
     stepWorld(w, input(), STEP);
     stepWorld(w, input(), STEP);
     expect(w.events.enemyLit).toBe(1);
@@ -72,15 +73,15 @@ describe('world events (for sound)', () => {
 
   it('report the catch, except in god mode', () => {
     const w = world();
-    w.enemy.x = w.player.x;
-    w.enemy.y = w.player.y;
+    firstEnemy(w).x = w.player.x;
+    firstEnemy(w).y = w.player.y;
     stepWorld(w, input(), STEP);
     expect(w.events.caught).toBe(1);
     expect(w.status).toBe('lost');
 
     const god = world(true);
-    god.enemy.x = god.player.x;
-    god.enemy.y = god.player.y;
+    firstEnemy(god).x = god.player.x;
+    firstEnemy(god).y = god.player.y;
     stepWorld(god, input(), STEP);
     expect(god.events.caught).toBe(0);
     expect(god.status).toBe('playing');

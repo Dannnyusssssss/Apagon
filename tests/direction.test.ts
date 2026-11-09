@@ -5,6 +5,7 @@ import { createEnemy } from '../src/game/enemy';
 import { createPlayer } from '../src/game/player';
 import { enemyDirectionSystem, snapEnemyDirection } from '../src/game/systems/warning';
 import { createWorld, resetWorld } from '../src/game/world';
+import { firstEnemy } from './helpers';
 
 const STEP = BALANCE.simulation.stepSeconds;
 const RATE = BALANCE.warning.directionTurnRate;
@@ -48,8 +49,8 @@ describe('enemy direction (directional shade)', () => {
     world.enemyDirection.x = 1;
     world.enemyDirection.y = 0;
     resetWorld(world);
-    const dx = world.enemy.x - world.player.x;
-    const dy = world.enemy.y - world.player.y;
+    const dx = firstEnemy(world).x - world.player.x;
+    const dy = firstEnemy(world).y - world.player.y;
     const length = Math.hypot(dx, dy);
     expect(world.enemyDirection.x).toBeCloseTo(dx / length, 9);
     expect(world.enemyDirection.y).toBeCloseTo(dy / length, 9);

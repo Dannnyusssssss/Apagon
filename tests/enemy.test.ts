@@ -7,6 +7,7 @@ import { createPlayer } from '../src/game/player';
 import { parseRoom } from '../src/game/rooms';
 import { enemySystem } from '../src/game/systems/enemy';
 import { createWorld, stepWorld, type StepInput, type World } from '../src/game/world';
+import { firstEnemy } from './helpers';
 
 const STEP = BALANCE.simulation.stepSeconds;
 const START_STEPS = Math.ceil(BALANCE.enemy.startDelaySeconds / STEP) + 1;
@@ -42,18 +43,18 @@ function run(w: World, steps: number): void {
 }
 
 function distance(w: World): number {
-  return Math.hypot(w.enemy.x - w.player.x, w.enemy.y - w.player.y);
+  return Math.hypot(firstEnemy(w).x - w.player.x, firstEnemy(w).y - w.player.y);
 }
 
 describe('enemy chase', () => {
   it('waits before moving at the start of a run', () => {
     const w = world(CORRIDOR, false);
-    const { x, y } = w.enemy;
+    const { x, y } = firstEnemy(w);
     run(w, START_STEPS - 2);
-    expect(w.enemy.x).toBe(x);
-    expect(w.enemy.y).toBe(y);
+    expect(firstEnemy(w).x).toBe(x);
+    expect(firstEnemy(w).y).toBe(y);
     run(w, 3);
-    expect(w.enemy.x).toBeLessThan(x);
+    expect(firstEnemy(w).x).toBeLessThan(x);
   });
 
   it('moves toward the player faster while the flashlight is off', () => {
@@ -81,13 +82,13 @@ describe('enemy chase', () => {
     // In range of the light, but behind the wall.
     const t = BALANCE.world.tileSize;
     w.player.x = 3.5 * t;
-    w.enemy.x = 5.5 * t;
-    w.enemy.y = 1.5 * t;
+    firstEnemy(w).x = 5.5 * t;
+    firstEnemy(w).y = 1.5 * t;
     expect(distance(w)).toBeLessThan(LIT_RADIUS);
-    const { x, y } = w.enemy;
+    const { x, y } = firstEnemy(w);
     run(w, 10);
-    expect(w.enemy.lit).toBe(false);
-    expect(w.enemy.x !== x || w.enemy.y !== y).toBe(true);
+    expect(firstEnemy(w).lit).toBe(false);
+    expect(firstEnemy(w).x !== x || firstEnemy(w).y !== y).toBe(true);
   });
 });
 
@@ -96,8 +97,8 @@ describe('enemy and light', () => {
 
   /** Runs with the light on until the enemy walks into it. */
   function runUntilLit(w: World): void {
-    for (let i = 0; i < 60 * 20 && !w.enemy.lit; i++) run(w, 1);
-    expect(w.enemy.lit).toBe(true);
+    for (let i = 0; i < 60 * 20 && !firstEnemy(w).lit; i++) run(w, 1);
+    expect(firstEnemy(w).lit).toBe(true);
   }
 
   it('stands still while lit, until it gets used to the light', () => {
@@ -105,9 +106,9 @@ describe('enemy and light', () => {
     runUntilLit(w);
     // It stops at the edge of the lit radius, give or take one step.
     expect(distance(w)).toBeGreaterThan(LIT_RADIUS - BALANCE.enemy.speed * STEP * 2);
-    const x = w.enemy.x;
+    const x = firstEnemy(w).x;
     run(w, ADAPT_STEPS - 2);
-    expect(w.enemy.x).toBe(x);
+    expect(firstEnemy(w).x).toBe(x);
   });
 
   it('then creeps through the light at a fraction of its speed', () => {
@@ -116,7 +117,7 @@ describe('enemy and light', () => {
     run(w, ADAPT_STEPS + 1);
     const before = distance(w);
     run(w, 30);
-    expect(w.enemy.lit).toBe(true);
+    expect(firstEnemy(w).lit).toBe(true);
     const creep = BALANCE.enemy.speed * BALANCE.enemy.creepFraction;
     expect(before - distance(w)).toBeCloseTo(creep * STEP * 30, 0);
   });
@@ -132,12 +133,12 @@ describe('enemy and light', () => {
     runUntilLit(w);
     run(w, 60);
     w.flashlight.on = false;
-    const x = w.enemy.x;
+    const x = firstEnemy(w).x;
     run(w, FREEZE_STEPS);
-    expect(w.enemy.lit).toBe(false);
-    expect(w.enemy.x).toBe(x);
+    expect(firstEnemy(w).lit).toBe(false);
+    expect(firstEnemy(w).x).toBe(x);
     run(w, 3);
-    expect(w.enemy.x).toBeLessThan(x);
+    expect(firstEnemy(w).x).toBeLessThan(x);
   });
 
   it('starts again from the full freeze time if lit during the freeze', () => {
@@ -149,9 +150,9 @@ describe('enemy and light', () => {
     w.flashlight.on = true;
     run(w, 1);
     w.flashlight.on = false;
-    const x = w.enemy.x;
+    const x = firstEnemy(w).x;
     run(w, FREEZE_STEPS);
-    expect(w.enemy.x).toBe(x);
+    expect(firstEnemy(w).x).toBe(x);
   });
 
   it('does not reset its habit when it briefly leaves the light', () => {
@@ -161,12 +162,12 @@ describe('enemy and light', () => {
     w.flashlight.on = false;
     run(w, 1);
     w.flashlight.on = true;
-    const x = w.enemy.x;
+    const x = firstEnemy(w).x;
     // About 30 more steps of light are enough, not a full new adaptation.
     run(w, 20);
-    expect(w.enemy.x).toBe(x);
+    expect(firstEnemy(w).x).toBe(x);
     run(w, 40);
-    expect(w.enemy.x).toBeLessThan(x);
+    expect(firstEnemy(w).x).toBeLessThan(x);
   });
 
   it('forgets the light gradually while out of it', () => {
@@ -192,15 +193,15 @@ describe('enemy start', () => {
   it('is the same for the same seed', () => {
     const a = createWorld(THREE_STARTS, { seed: 42, reduceFlicker: false, classicLight: true });
     const b = createWorld(THREE_STARTS, { seed: 42, reduceFlicker: false, classicLight: true });
-    expect(a.enemy.x).toBe(b.enemy.x);
-    expect(a.enemy.y).toBe(b.enemy.y);
+    expect(firstEnemy(a).x).toBe(firstEnemy(b).x);
+    expect(firstEnemy(a).y).toBe(firstEnemy(b).y);
   });
 
   it('uses every marked start across seeds', () => {
     const starts = new Set<string>();
     for (let seed = 1; seed <= 50; seed++) {
       const w = createWorld(THREE_STARTS, { seed, reduceFlicker: false, classicLight: true });
-      starts.add(`${String(w.enemy.x)},${String(w.enemy.y)}`);
+      starts.add(`${String(firstEnemy(w).x)},${String(firstEnemy(w).y)}`);
     }
     expect(starts.size).toBe(3);
   });

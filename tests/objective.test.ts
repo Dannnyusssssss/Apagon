@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { BALANCE } from '../src/data/balance';
 import type { RoomDef } from '../src/data/rooms';
 import { createWorld, resetWorld, stepWorld, type StepInput, type World } from '../src/game/world';
+import { firstEnemy } from './helpers';
 
 const STEP = BALANCE.simulation.stepSeconds;
 const T = BALANCE.world.tileSize;
@@ -123,7 +124,7 @@ describe('battery in the world', () => {
   it('drains with the light on during play', () => {
     const w = world();
     w.flashlight.on = true;
-    w.enemy.startTimer = 1e9; // keep the enemy out of this long test
+    firstEnemy(w).startTimer = 1e9; // keep the enemy out of this long test
     const steps = Math.round(BALANCE.battery.drainSeconds / 2 / STEP);
     for (let i = 0; i < steps; i++) stepWorld(w, IDLE, STEP);
     expect(w.flashlight.battery).toBeCloseTo(0.5, 2);
@@ -133,12 +134,12 @@ describe('battery in the world', () => {
 describe('enemy near signal', () => {
   it('grows as the enemy gets closer', () => {
     const w = world();
-    w.enemy.x = w.player.x + BALANCE.warning.enemyNearDistance + 10;
-    w.enemy.y = w.player.y;
+    firstEnemy(w).x = w.player.x + BALANCE.warning.enemyNearDistance + 10;
+    firstEnemy(w).y = w.player.y;
     stepWorld(w, IDLE, STEP);
     expect(w.enemyNear).toBe(0);
-    w.enemy.x = w.player.x + BALANCE.warning.enemyNearDistance / 2;
-    w.enemy.startTimer = 10;
+    firstEnemy(w).x = w.player.x + BALANCE.warning.enemyNearDistance / 2;
+    firstEnemy(w).startTimer = 10;
     stepWorld(w, IDLE, STEP);
     expect(w.enemyNear).toBeCloseTo(0.5, 6);
   });

@@ -1,9 +1,20 @@
 import { createCamera, followTarget } from '../core/camera';
 import { lerp, lerpAngle } from '../core/math';
 import { BALANCE } from '../data/balance';
+import { levelAt, type LevelDef, type LevelPalette } from '../data/levels';
 import { isBatteryLow } from '../game/battery';
 import { hasAllKeys, isAvailable, type Item } from '../game/items';
-import { isWall, roomHeight, roomWidth, type RoomGrid } from '../game/rooms';
+import {
+  isWall,
+  roomHeight,
+  roomWidth,
+  tileAt,
+  TILE_DOOR,
+  TILE_FLOOR,
+  TILE_ROCK,
+  TILE_TREE,
+  type RoomGrid,
+} from '../game/rooms';
 import { castCone, castVisibility } from '../game/visibility';
 import { currentLightRadius, type World } from '../game/world';
 import { Hud } from './hud';
@@ -15,7 +26,10 @@ import {
   createKeySprite,
   createFaceSprite,
   createFlashlightSprite,
+  createGateSprite,
   createPlayerSprite,
+  createRockSprite,
+  createTreeSprite,
   FACE,
   FLASHLIGHT_ASPECT,
   type FlashlightLook,
@@ -41,12 +55,6 @@ const COLORS = {
   skin: '#e2c39a',
   skinEdge: '#6b5238',
   pupil: '#1a100a',
-  background: '#050506',
-  floor: '#2a2621',
-  floorLine: 'rgba(0, 0, 0, 0.35)',
-  wall: '#4b4f58',
-  wallTop: '#6b707c',
-  wallShadow: 'rgba(0, 0, 0, 0.45)',
 } as const;
 
 /** Drawn size of keys and batteries, as a fraction of the tile. */
@@ -80,6 +88,13 @@ export class Renderer {
   private readonly batterySprite = createBatterySprite();
   private readonly doorSprite = createDoorSprite(false);
   private readonly doorReadySprite = createDoorSprite(true);
+  private readonly gateSprite = createGateSprite(false);
+  private readonly gateReadySprite = createGateSprite(true);
+  private readonly treeSprite = createTreeSprite();
+  private readonly rockSprite = createRockSprite();
+  private palette: LevelPalette = levelAt(0).palette;
+  private gateExit = false;
+  private penetration: number = BALANCE.visibility.wallPenetration;
   private readonly hud = new Hud();
   private readonly view: ViewTransform = { scale: 1, offsetX: 0, offsetY: 0 };
   private readonly circlePolygon = new Float32Array(BALANCE.visibility.rayCount * 2);
@@ -121,6 +136,14 @@ export class Renderer {
     this.resize();
   }
 
+  /** Colors and exit of the level being played. */
+  setLevel(level: LevelDef): void {
+    this.palette = level.palette;
+    this.gateExit = level.exit === 'gate';
+    this.penetration = level.lightPenetration ?? BALANCE.visibility.wallPenetration;
+    this.hud.setExit(level.exit);
+  }
+
   /** Matches the backing store to the element size and devicePixelRatio. */
   resize(): void {
     this.dpr = window.devicePixelRatio || 1;
@@ -140,7 +163,7 @@ export class Renderer {
 
   render(world: World, alpha: number): void {
     const { ctx, camera, dpr, view } = this;
-    const { room, player, enemy, flashlight } = world;
+    const { room, player, flashlight } = world;
     const px = lerp(player.prevX, player.x, alpha);
     const py = lerp(player.prevY, player.y, alpha);
     const aim = lerpAngle(flashlight.prevAim, flashlight.aim, alpha);
@@ -152,19 +175,21 @@ export class Renderer {
     view.offsetY = this.canvas.height / 2 - camera.y * view.scale;
 
     ctx.setTransform(1, 0, 0, 1, 0, 0);
-    ctx.fillStyle = COLORS.background;
+    ctx.fillStyle = this.palette.background;
     ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
 
     ctx.setTransform(view.scale, 0, 0, view.scale, view.offsetX, view.offsetY);
     this.drawRoom(room);
     this.drawDoor(world);
     this.drawItems(world.items, room.tileSize);
-    this.drawBody(
-      this.enemySprite,
-      lerp(enemy.prevX, enemy.x, alpha),
-      lerp(enemy.prevY, enemy.y, alpha),
-      enemy.radius,
-    );
+    for (const enemy of world.enemies) {
+      this.drawBody(
+        this.enemySprite,
+        lerp(enemy.prevX, enemy.x, alpha),
+        lerp(enemy.prevY, enemy.y, alpha),
+        enemy.radius,
+      );
+    }
     this.drawPlayer(world, px, py, aim);
 
     const count = this.updateLights(world, px, py, aim);
@@ -180,7 +205,7 @@ export class Renderer {
     const { room, flashlight } = world;
     const { beam, halo } = this;
     const cfg = BALANCE.flashlight;
-    const penetration = BALANCE.visibility.wallPenetration;
+    const { penetration } = this;
     const cone = flashlight.on && !world.settings.classicLight;
     beam.x = px;
     beam.y = py;
@@ -211,7 +236,14 @@ export class Renderer {
 
   private drawDoor(world: World): void {
     const { door, tileSize: t } = world.room;
-    const sprite = hasAllKeys(world.inventory) ? this.doorReadySprite : this.doorSprite;
+    const ready = hasAllKeys(world.inventory);
+    const sprite = this.gateExit
+      ? ready
+        ? this.gateReadySprite
+        : this.gateSprite
+      : ready
+        ? this.doorReadySprite
+        : this.doorSprite;
     this.ctx.drawImage(sprite, door.col * t, door.row * t, t, t);
   }
 
@@ -289,13 +321,13 @@ export class Renderer {
   }
 
   private drawRoom(room: RoomGrid): void {
-    const { ctx } = this;
+    const { ctx, palette, view } = this;
     const t = room.tileSize;
 
-    ctx.fillStyle = COLORS.floor;
+    ctx.fillStyle = palette.floor;
     ctx.fillRect(0, 0, room.cols * t, room.rows * t);
 
-    ctx.strokeStyle = COLORS.floorLine;
+    ctx.strokeStyle = palette.floorLine;
     ctx.lineWidth = 1;
     ctx.beginPath();
     for (let col = 1; col < room.cols; col++) {
@@ -308,20 +340,37 @@ export class Renderer {
     }
     ctx.stroke();
 
-    for (let row = 0; row < room.rows; row++) {
-      for (let col = 0; col < room.cols; col++) {
-        if (!isWall(room, col, row)) continue;
-        if (col === room.door.col && row === room.door.row) continue;
+    // Only the tiles on screen: the larger maps have many more than fit in view.
+    const worldSize = t * view.scale;
+    const firstCol = Math.max(0, Math.floor(-view.offsetX / worldSize));
+    const firstRow = Math.max(0, Math.floor(-view.offsetY / worldSize));
+    const lastCol = Math.min(
+      room.cols - 1,
+      Math.floor((this.canvas.width - view.offsetX) / worldSize),
+    );
+    const lastRow = Math.min(
+      room.rows - 1,
+      Math.floor((this.canvas.height - view.offsetY) / worldSize),
+    );
+
+    for (let row = firstRow; row <= lastRow; row++) {
+      for (let col = firstCol; col <= lastCol; col++) {
+        const tile = tileAt(room, col, row);
+        if (tile === TILE_FLOOR || tile === TILE_DOOR) continue;
         const x = col * t;
         const y = row * t;
-        ctx.fillStyle = COLORS.wall;
+        ctx.fillStyle = palette.wall;
         ctx.fillRect(x, y, t, t);
-        if (!isWall(room, col, row - 1)) {
-          ctx.fillStyle = COLORS.wallTop;
+        if (tile === TILE_TREE) {
+          ctx.drawImage(this.treeSprite, x, y, t, t);
+        } else if (tile === TILE_ROCK) {
+          ctx.drawImage(this.rockSprite, x, y, t, t);
+        } else if (!isWall(room, col, row - 1)) {
+          ctx.fillStyle = palette.wallTop;
           ctx.fillRect(x, y, t, t * WALL_TOP_FRACTION);
         }
         if (!isWall(room, col, row + 1)) {
-          ctx.fillStyle = COLORS.wallShadow;
+          ctx.fillStyle = palette.wallShadow;
           ctx.fillRect(x, y + t, t, t * WALL_TOP_FRACTION);
         }
       }

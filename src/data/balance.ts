@@ -103,6 +103,18 @@ export const BALANCE = {
     creepFraction: 0.25,
     /** Center distance at which the enemy reaches the player. */
     catchDistance: 26,
+    /** With several enemies, each one starts this many seconds after the previous one. */
+    extraStartDelaySeconds: 4,
+    /** Enemies closer than this (two tiles) drift apart, so they do not read as one. */
+    separationDistance: 96,
+    /** Strongest drift, when touching. Well under their speed: a nudge, not a wall. */
+    separationSpeed: 70,
+  },
+  /** Values of a level that does not set its own (see `src/data/levels.ts`). */
+  levels: {
+    enemyCount: 1,
+    enemySpeedFactor: 1,
+    batterySecondsFactor: 1,
   },
   flicker: {
     /**

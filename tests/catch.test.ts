@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { BALANCE } from '../src/data/balance';
 import type { RoomDef } from '../src/data/rooms';
 import { createWorld, resetWorld, stepWorld, type StepInput } from '../src/game/world';
+import { firstEnemy } from './helpers';
 
 const STEP = BALANCE.simulation.stepSeconds;
 
@@ -17,20 +18,20 @@ describe('defeat', () => {
   it('happens when the enemy reaches the player', () => {
     const w = createWorld(ROOM, { seed: 3, reduceFlicker: false });
     w.flashlight.on = false;
-    w.enemy.x = w.player.x + BALANCE.enemy.catchDistance + 5;
-    w.enemy.y = w.player.y;
+    firstEnemy(w).x = w.player.x + BALANCE.enemy.catchDistance + 5;
+    firstEnemy(w).y = w.player.y;
     stepWorld(w, IDLE, STEP);
     expect(w.status).toBe('playing');
 
-    w.enemy.x = w.player.x + BALANCE.enemy.catchDistance - 1;
+    firstEnemy(w).x = w.player.x + BALANCE.enemy.catchDistance - 1;
     stepWorld(w, IDLE, STEP);
     expect(w.status).toBe('lost');
   });
 
   it('freezes the world once lost', () => {
     const w = createWorld(ROOM, { seed: 3, reduceFlicker: false });
-    w.enemy.x = w.player.x;
-    w.enemy.y = w.player.y;
+    firstEnemy(w).x = w.player.x;
+    firstEnemy(w).y = w.player.y;
     stepWorld(w, IDLE, STEP);
     expect(w.status).toBe('lost');
     const { x } = w.player;
@@ -45,8 +46,8 @@ describe('defeat', () => {
     const startY = w.player.y;
     for (let i = 0; i < 20; i++) stepWorld(w, RIGHT, STEP);
     w.flashlight.on = !BALANCE.flashlight.startsOn;
-    w.enemy.x = w.player.x;
-    w.enemy.y = w.player.y;
+    firstEnemy(w).x = w.player.x;
+    firstEnemy(w).y = w.player.y;
     stepWorld(w, IDLE, STEP);
     expect(w.status).toBe('lost');
 
@@ -56,8 +57,8 @@ describe('defeat', () => {
     expect(w.player.y).toBe(startY);
     expect(w.flashlight.on).toBe(BALANCE.flashlight.startsOn);
     expect(w.flashlight.strength).toBe(1);
-    expect(w.enemy.x).toBe(8.5 * BALANCE.world.tileSize);
-    expect(w.enemy.startTimer).toBe(BALANCE.enemy.startDelaySeconds);
+    expect(firstEnemy(w).x).toBe(8.5 * BALANCE.world.tileSize);
+    expect(firstEnemy(w).startTimer).toBe(BALANCE.enemy.startDelaySeconds);
     stepWorld(w, IDLE, STEP);
     expect(w.status).toBe('playing');
   });
