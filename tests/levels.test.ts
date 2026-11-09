@@ -27,6 +27,8 @@ const T = BALANCE.world.tileSize;
 const STEP = BALANCE.simulation.stepSeconds;
 /** Distance at which the simulated player runs from an enemy. */
 const RUN_FROM_ENEMY_TILES = 3;
+/** Distance at which the simulated player with a mouse aims at an enemy in plain sight. */
+const AIM_AT_ENEMY_TILES = 5;
 const NEIGHBOURS = [
   [1, 0],
   [-1, 0],
@@ -271,6 +273,19 @@ describe.each(LEVELS.map((level) => [level.id, level] as const))('level %s', (_i
     expect(wins).toBeGreaterThan(0);
   });
 
+  it('is easier when the beam can be aimed apart from the walking direction', () => {
+    const wins = (aimWithMouse: boolean): number => {
+      let total = 0;
+      for (let seed = 1; seed <= 40; seed++) {
+        const w = createLevelWorld(level, { seed, reduceFlicker: false });
+        playRoute(w, aimWithMouse);
+        if (w.status === 'won') total++;
+      }
+      return total;
+    };
+    expect(wins(true)).toBeGreaterThan(wins(false));
+  });
+
   it('repeats the same placement for the same seed', () => {
     const active = (seed: number): string =>
       createLevelWorld(level, { seed, reduceFlicker: false })
@@ -318,9 +333,10 @@ function shortestTour(
  * A simple player: walks to the nearest key still missing and then to the exit, with the
  * light on and pressing the interact key all along. When an unlit enemy gets close it steps
  * to the neighbour tile farthest from it, as a person running away would. It plans no route.
+ * With `aimWithMouse` it also keeps the beam on the nearest enemy it can see, without fail.
  * Stops when the run ends, or after a limit that any real route stays well under.
  */
-function playRoute(world: World): void {
+function playRoute(world: World, aimWithMouse = false): void {
   const { room, player } = world;
   const input: StepInput = { axisX: 0, axisY: 0, toggleFlashlight: false, interact: true };
   const exit = exitApproach(room);
@@ -385,6 +401,12 @@ function playRoute(world: World): void {
         }
       }
     }
+    const aimsAtThreat =
+      aimWithMouse &&
+      threatDistance < AIM_AT_ENEMY_TILES * T &&
+      threat.startTimer <= 0 &&
+      hasLineOfSight(room, player.x, player.y, threat.x, threat.y);
+    input.aimAt = aimsAtThreat ? { x: threat.x, y: threat.y } : null;
     const dx = goalX - player.x;
     const dy = goalY - player.y;
     const length = Math.hypot(dx, dy);
