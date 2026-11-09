@@ -7,6 +7,8 @@ export const BALANCE = {
     maxStepsPerFrame: 5,
     /** Frame deltas above this (tab switch, breakpoint) are clamped. */
     maxFrameSeconds: 0.25,
+    /** Frames drawn per second, at least: a faster monitor draws every second or third refresh. */
+    targetFps: 60,
   },
   world: {
     tileSize: 48,
@@ -233,9 +235,21 @@ export const BALANCE = {
   lighting: {
     /** Opacity of the darkness layer (1 = pure black). */
     darknessAlpha: 0.97,
+    /** Resolution of that layer against the screen: it is soft, so a lower one does not show. */
+    layerScale: 0.5,
   },
   view: {
     /** Number of tiles that fit along the shorter side of the screen. */
     tilesOnShortSide: 11,
+    /** Canvas pixels per CSS pixel, at most: denser screens cost far more than they show. */
+    maxRenderScale: 1.5,
+    /** Canvas pixels in total, at most, for large windows at any density. */
+    maxRenderPixels: 3_200_000,
+  },
+  debug: {
+    /** A frame longer than this counts as a stall in the debug panel. */
+    longFrameMs: 50,
+    /** The "worst frame" of the panel covers about this long. */
+    worstFrameWindowMs: 5000,
   },
 } as const;
