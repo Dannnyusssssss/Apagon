@@ -43,6 +43,19 @@ export class InputState {
     return this.down.has(code);
   }
 
+  /** The on-screen buttons ask for the same actions as the keys. */
+  requestToggle(): void {
+    this.toggleRequested = true;
+  }
+
+  requestInteract(): void {
+    this.interactRequested = true;
+  }
+
+  requestPause(): void {
+    this.pauseRequested = true;
+  }
+
   /** Returns true once per flashlight key press. */
   consumeToggle(): boolean {
     const requested = this.toggleRequested;

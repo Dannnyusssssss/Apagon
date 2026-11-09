@@ -9,6 +9,8 @@ export interface DebugParams {
   seed: number | null;
   /** Level to play (1 is the first), without touching the saved progress; or null. */
   level: number | null;
+  /** Shows the on-screen controls on any device, and lets the mouse use them. */
+  touch: boolean;
 }
 
 const MAX_SEED = 0xffffffff;
@@ -19,7 +21,7 @@ const MAX_SEED = 0xffffffff;
  * "1" or "true".
  */
 export function parseDebugParams(search: string): DebugParams {
-  const result: DebugParams = { debug: false, god: false, seed: null, level: null };
+  const result: DebugParams = { debug: false, god: false, seed: null, level: null, touch: false };
   let params: URLSearchParams;
   try {
     params = new URLSearchParams(search);
@@ -28,6 +30,7 @@ export function parseDebugParams(search: string): DebugParams {
   }
   result.debug = isFlagOn(params.get('debug'));
   result.god = isFlagOn(params.get('god'));
+  result.touch = isFlagOn(params.get('touch'));
   const seed = params.get('seed');
   if (seed !== null && /^\d{1,10}$/.test(seed)) {
     const value = Number(seed);

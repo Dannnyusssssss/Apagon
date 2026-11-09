@@ -4,9 +4,16 @@ import { LEVEL_COUNT } from '../src/data/levels';
 
 describe('debug params', () => {
   it('are all off by default', () => {
-    const off = { debug: false, god: false, seed: null, level: null };
+    const off = { debug: false, god: false, seed: null, level: null, touch: false };
     expect(parseDebugParams('')).toEqual(off);
     expect(parseDebugParams('?other=1')).toEqual(off);
+  });
+
+  it('force the on-screen controls only with a valid touch flag', () => {
+    expect(parseDebugParams('?touch').touch).toBe(true);
+    expect(parseDebugParams('?touch=1').touch).toBe(true);
+    expect(parseDebugParams('?touch=0').touch).toBe(false);
+    expect(parseDebugParams('?touch=yes').touch).toBe(false);
   });
 
   it('read flags with no value, 1 or true', () => {
@@ -16,6 +23,7 @@ describe('debug params', () => {
       god: true,
       seed: null,
       level: null,
+      touch: false,
     });
     expect(parseDebugParams('?debug=0').debug).toBe(false);
     expect(parseDebugParams('?god=yes').god).toBe(false);

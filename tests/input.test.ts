@@ -4,6 +4,32 @@ import { limitToUnit } from '../src/core/math';
 
 const axis = { x: 0, y: 0 };
 
+describe('on-screen buttons', () => {
+  it('ask for the same actions as the keys, once per press', () => {
+    const input = new InputState();
+    input.requestToggle();
+    input.requestInteract();
+    input.requestPause();
+    expect(input.consumeToggle()).toBe(true);
+    expect(input.consumeToggle()).toBe(false);
+    expect(input.consumeInteract()).toBe(true);
+    expect(input.consumeInteract()).toBe(false);
+    expect(input.consumePause()).toBe(true);
+    expect(input.consumePause()).toBe(false);
+  });
+
+  it('are forgotten when the input is cleared', () => {
+    const input = new InputState();
+    input.requestToggle();
+    input.requestInteract();
+    input.requestPause();
+    input.clear();
+    expect(input.consumeToggle()).toBe(false);
+    expect(input.consumeInteract()).toBe(false);
+    expect(input.consumePause()).toBe(false);
+  });
+});
+
 describe('InputState', () => {
   it('maps WASD and arrows to the movement axis', () => {
     const input = new InputState();

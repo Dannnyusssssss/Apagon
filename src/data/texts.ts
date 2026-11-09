@@ -51,9 +51,15 @@ export const TEXTS = {
   },
   settings: {
     reduceFlicker: 'Reducir parpadeo',
-    mute: 'Silenciar sonido (M)',
+    mute: 'Silenciar sonido',
+    /** Only next to the keyboard controls. */
+    muteKey: ' (M)',
     classicLight: 'Linterna clásica (más fácil)',
     mouseAim: 'Apuntar con el ratón',
+    leftHanded: 'Controles a la izquierda (zurdos)',
+    touchControls: 'Controles táctiles',
+    touchModes: { auto: 'Automático', always: 'Siempre', never: 'Nunca' },
+    touchNever: 'Con "Nunca" necesitas un teclado para jugar.',
   },
   defeat: {
     title: 'Te ha alcanzado',
@@ -68,6 +74,26 @@ export const TEXTS = {
     newBest: '¡Nueva mejor partida completa!',
     fullRunHint: 'La partida completa solo cuenta si empiezas con "Nueva partida".',
     again: 'Nueva partida',
+  },
+  touch: {
+    /** Same format as the key caps: where to touch, and what it does. */
+    controls: [
+      { keys: ['Lado libre'], alt: [], label: 'Arrastra para moverte' },
+      { keys: ['Lado de los botones'], alt: [], label: 'Arrastra para apuntar la luz' },
+      { keys: ['Botones'], alt: [], label: 'Linterna, interactuar y pausa' },
+    ],
+    landscape: 'Se juega mejor en horizontal.',
+    light: 'Linterna',
+    lightOn: 'Encendida',
+    lightOff: 'Apagada',
+    interact: 'Interactuar',
+    pause: 'Pausa',
+    prompts: {
+      pickKey: 'Recoger llave',
+      pickBattery: 'Recoger pila',
+      openDoor: 'Abrir la puerta',
+      openGate: 'Abrir la verja',
+    },
   },
   hud: {
     battery: 'Batería ',
