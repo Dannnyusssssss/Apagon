@@ -9,14 +9,19 @@ body {
   margin: 0;
   height: 100%;
   overflow: hidden;
+  /* Dragging past the edge must not reload the page or move the portal around it. */
+  overscroll-behavior: none;
   background: #000;
   color: #f2f2f2;
   font-family: system-ui, sans-serif;
+  -webkit-tap-highlight-color: transparent;
 }
 
 #app {
   position: fixed;
   inset: 0;
+  /* The real visible height, with or without the mobile browser bars. */
+  height: 100dvh;
 }
 
 #game {
@@ -24,6 +29,11 @@ body {
   width: 100%;
   height: 100%;
   outline: none;
+  /* Only the game takes over the gestures; the menus keep scrolling and pinch zoom. */
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
 }
 
 /* Only with the cone and mouse aiming on: the menus cover the canvas, so it shows during play. */
@@ -46,9 +56,12 @@ body {
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 1rem;
+  padding: max(1rem, env(safe-area-inset-top)) max(1rem, env(safe-area-inset-right))
+    max(1rem, env(safe-area-inset-bottom)) max(1rem, env(safe-area-inset-left));
   overflow-x: hidden;
   overflow-y: auto;
+  /* Scrolling and pinch zoom stay; only the double-tap zoom goes. */
+  touch-action: manipulation;
   background:
     radial-gradient(ellipse at 50% 30%, rgba(255, 190, 110, 0.1), transparent 55%),
     radial-gradient(ellipse at center, rgba(0, 0, 0, 0.62) 0%, rgba(0, 0, 0, 0.94) 75%);
@@ -267,7 +280,7 @@ h2.screen__title {
 
 .screen__controls-list {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(15rem, 100%), 1fr));
   gap: 0.45rem 1.25rem;
   margin: 0;
   padding: 0;
@@ -379,7 +392,9 @@ h2.screen__title {
 .screen__button {
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   gap: 0.65rem;
+  min-height: 44px;
   margin-top: 0.3rem;
   padding: 0.7rem 2.1rem;
   border: 2px solid var(--warm);
@@ -454,6 +469,264 @@ h2.screen__title {
   .screen__button {
     padding: 0.6rem 1.8rem;
   }
+}
+
+/* What each kind of device needs to read and reach. */
+.only-touch,
+.only-portrait,
+.touch-setting {
+  display: none;
+}
+
+.touch-ui .only-keys,
+.only-mouse {
+  display: none;
+}
+
+.touch-ui .only-touch {
+  display: block;
+}
+
+.touch-capable .touch-setting {
+  display: inline-flex;
+}
+
+.touch-capable .screen__choice.touch-setting {
+  display: block;
+}
+
+.has-mouse .only-mouse {
+  display: inline-flex;
+}
+
+@media (orientation: portrait) {
+  .touch-ui .only-portrait {
+    display: block;
+  }
+}
+
+/* Fingers need a target of at least 44 pixels, which the label of each switch gives. */
+.touch-capable .screen__toggle {
+  min-height: 44px;
+}
+
+/* Three modes in one row; the whole of each part is the target. */
+.screen__choice {
+  width: 100%;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.screen__choice-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.55rem;
+  padding: 0;
+  margin-bottom: 0.35rem;
+  font-size: 0.98rem;
+  color: var(--ink);
+}
+
+.screen__choice-parts {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 0.35rem;
+}
+
+.screen__choice-part {
+  position: relative;
+  display: inline-flex;
+  flex: 0 1 8rem;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
+  padding: 0 0.5rem;
+  border: 1px solid rgba(255, 230, 190, 0.5);
+  font-size: 0.92rem;
+  color: var(--ink);
+  cursor: pointer;
+}
+
+.screen__choice-part + .screen__choice-part {
+  border-left: 0;
+}
+
+.screen__choice-part:has(:checked) {
+  background: #5a4718;
+  color: var(--warm);
+  font-weight: 700;
+  text-decoration: underline;
+  text-underline-offset: 0.2em;
+}
+
+.screen__choice-part:has(:focus-visible) {
+  outline: 3px solid var(--ink);
+  outline-offset: 2px;
+}
+
+.screen__choice-input {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+
+/* A phone, either way up: what starts the game comes first, the rest scrolls below it. */
+@media (max-height: 520px), (max-width: 600px) {
+  .touch-ui .screen--start .screen__divider {
+    display: none;
+  }
+
+  .touch-ui .screen--start .screen__title,
+  .touch-ui .screen--pause .screen__panel > .icon {
+    order: -3;
+  }
+
+  .touch-ui .screen--pause .screen__title {
+    order: -2;
+  }
+
+  .touch-ui .screen--start .screen__button,
+  .touch-ui .screen--pause .screen__button {
+    order: -1;
+  }
+}
+
+/* On-screen controls: above the game and below the menus. Only their parts take touches. */
+.touch-controls {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.touch-controls[hidden],
+.touch-stick[hidden] {
+  display: none;
+}
+
+.touch-stick {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 0;
+  height: 0;
+}
+
+.touch-stick::before {
+  content: '';
+  position: absolute;
+  top: -56px;
+  left: -56px;
+  width: 112px;
+  height: 112px;
+  border: 2px solid rgba(255, 230, 190, 0.55);
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.25);
+}
+
+.touch-stick--aim::before {
+  border-style: dashed;
+}
+
+.touch-stick__knob {
+  position: absolute;
+  top: -24px;
+  left: -24px;
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  background: rgba(255, 215, 106, 0.55);
+  box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.6);
+}
+
+.touch-actions {
+  position: absolute;
+  right: calc(12px + env(safe-area-inset-right));
+  bottom: calc(12px + env(safe-area-inset-bottom));
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.touch-controls--left .touch-actions {
+  right: auto;
+  left: calc(12px + env(safe-area-inset-left));
+}
+
+.touch-button {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  width: 84px;
+  height: 70px;
+  padding: 2px;
+  border: 2px solid rgba(255, 230, 190, 0.55);
+  border-radius: 0.5rem;
+  background: rgba(15, 12, 8, 0.72);
+  color: #f2ead8;
+  font:
+    600 0.72rem/1.1 system-ui,
+    sans-serif;
+  text-align: center;
+  pointer-events: auto;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+}
+
+.touch-button__state {
+  font-weight: 400;
+  font-size: 0.68rem;
+  color: #cfc4ad;
+}
+
+.touch-button--on {
+  border-color: #ffd76a;
+}
+
+/* Something at hand: thicker edge and brighter fill, besides the text that names it. */
+.touch-button--ready {
+  border-width: 4px;
+  border-color: #ffd76a;
+  background: rgba(90, 71, 24, 0.9);
+  color: #ffd76a;
+}
+
+.touch-button--pressed {
+  background: rgba(90, 71, 24, 0.95);
+  transform: scale(0.96);
+}
+
+.reduce-motion .touch-button--pressed {
+  transform: none;
+}
+
+.touch-button--pause {
+  position: absolute;
+  top: calc(12px + env(safe-area-inset-top));
+  right: calc(12px + env(safe-area-inset-right));
+  width: 48px;
+  height: 48px;
+}
+
+.touch-button--pause .touch-button__label {
+  display: none;
+}
+
+.safe-area-probe {
+  position: absolute;
+  visibility: hidden;
+  pointer-events: none;
+  padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom)
+    env(safe-area-inset-left);
 }
 
 .reduce-motion .screen__switch,

@@ -10,7 +10,9 @@ export type IconKind =
   | 'flicker'
   | 'retry'
   | 'resume'
-  | 'pause';
+  | 'pause'
+  | 'hand'
+  | 'stick';
 
 /** Icons are drawn on a 24x24 grid and scaled for sharp edges on dense screens. */
 const GRID = 24;
@@ -193,5 +195,32 @@ const DRAW: Record<IconKind, (ctx: CanvasRenderingContext2D) => void> = {
   pause(ctx) {
     ctx.fillRect(6, 5, 4, 14);
     ctx.fillRect(14, 5, 4, 14);
+  },
+  hand(ctx) {
+    // An open palm reaching for something.
+    ctx.beginPath();
+    ctx.moveTo(7, 13);
+    ctx.lineTo(7, 6);
+    ctx.moveTo(11, 11);
+    ctx.lineTo(11, 3.5);
+    ctx.moveTo(15, 11);
+    ctx.lineTo(15, 4.5);
+    ctx.moveTo(19, 12);
+    ctx.lineTo(19, 7);
+    ctx.moveTo(19, 12);
+    ctx.lineTo(19, 15);
+    ctx.quadraticCurveTo(19, 21.5, 12.5, 21.5);
+    ctx.quadraticCurveTo(8, 21.5, 6, 18);
+    ctx.lineTo(3.5, 13.5);
+    ctx.stroke();
+  },
+  stick(ctx) {
+    // A ring with a knob: the on-screen stick.
+    ctx.beginPath();
+    ctx.arc(12, 12, 9.5, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.arc(14.5, 10, 4, 0, Math.PI * 2);
+    ctx.fill();
   },
 };

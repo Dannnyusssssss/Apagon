@@ -61,6 +61,8 @@ describe('parseSave', () => {
       muted: false,
       classicLight: false,
       mouseAim: true,
+      touchControls: 'auto',
+      leftHanded: false,
       unlockedLevel: 2,
       bestLevelTimes: [42.5, 80, null],
       bestFullRunSeconds: 300,
@@ -236,6 +238,42 @@ describe('mouse aim setting', () => {
     const storage = new MemoryStorage();
     writeSave(storage, { ...defaultSave(), mouseAim: false });
     expect(loadSave(storage).mouseAim).toBe(false);
+  });
+});
+
+describe('touch settings', () => {
+  const parseSettings = (settings: unknown): SaveData =>
+    parseSave(JSON.stringify({ version: 1, settings, bestFullRunSeconds: 5 }));
+
+  it('are automatic and right-handed by default and in older saves', () => {
+    expect(defaultSave().touchControls).toBe('auto');
+    expect(defaultSave().leftHanded).toBe(false);
+    const old = parseSettings({ muted: true });
+    expect(old.touchControls).toBe('auto');
+    expect(old.leftHanded).toBe(false);
+    expect(old.muted).toBe(true);
+  });
+
+  it('read the three modes', () => {
+    for (const mode of ['auto', 'always', 'never'] as const) {
+      expect(parseSettings({ touchControls: mode }).touchControls).toBe(mode);
+    }
+  });
+
+  it('ignore corrupt values, without spoiling the other fields', () => {
+    for (const bad of ['sometimes', 'AUTO', '', 0, 1, null, [], {}, ['always']]) {
+      const read = parseSettings({ touchControls: bad, leftHanded: bad });
+      expect(read.touchControls).toBe('auto');
+      expect(read.leftHanded).toBe(false);
+      expect(read.bestFullRunSeconds).toBe(5);
+    }
+  });
+
+  it('are written and read back', () => {
+    const storage = new MemoryStorage();
+    writeSave(storage, { ...defaultSave(), touchControls: 'never', leftHanded: true });
+    expect(loadSave(storage).touchControls).toBe('never');
+    expect(loadSave(storage).leftHanded).toBe(true);
   });
 });
 

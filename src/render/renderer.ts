@@ -20,6 +20,7 @@ import { castCone, castVisibility } from '../game/visibility';
 import { currentLightRadius, type World } from '../game/world';
 import { Hud } from './hud';
 import { Lighting, type LightShape, type ViewTransform } from './lighting';
+import type { SafeInsets } from '../ui/safeArea';
 import {
   createBatterySprite,
   createDoorSprite,
@@ -154,6 +155,12 @@ export class Renderer {
     this.gateExit = level.exit === 'gate';
     this.penetration = level.lightPenetration ?? BALANCE.visibility.wallPenetration;
     this.hud.setExit(level.exit);
+  }
+
+  /** How the HUD fits the on-screen controls and the safe area. */
+  setHudLayout(touch: boolean, insets: SafeInsets): void {
+    this.hud.setTouch(touch);
+    this.hud.setInsets(insets);
   }
 
   /** Matches the backing store to the element size and the capped pixel density. */

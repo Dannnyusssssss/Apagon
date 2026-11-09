@@ -1,10 +1,13 @@
 import { BALANCE } from '../data/balance';
+import { TOUCH } from '../data/controls';
 import type { ExitKind } from '../data/levels';
 import { TEXTS } from '../data/texts';
 import { isBatteryLow } from '../game/battery';
 import { missingKeys } from '../game/items';
 import type { Prompt } from '../game/systems/interact';
 import type { World } from '../game/world';
+import { promptText } from '../ui/prompts';
+import type { SafeInsets } from '../ui/safeArea';
 import { createSideShadeSprite, createVignetteSprite } from './sprites';
 
 const COLORS = {
@@ -23,6 +26,11 @@ const NEAR_TEXT_THRESHOLD = 0.35;
 const VIGNETTE_MAX_ALPHA = 0.75;
 /** Base font size in CSS pixels. */
 const FONT_SIZE = 16;
+/** Gap between the HUD and the edge of the safe area. */
+const MARGIN = 12;
+/** The full sound indicator, with its text. */
+const SOUND_WIDTH = 170;
+const SOUND_HEIGHT = 30;
 
 /**
  * Screen-space HUD: battery, keys, "enemy near" and the E prompt.
@@ -41,22 +49,38 @@ export class Hud {
   private keysCount = -1;
   private keysNeeded = -1;
   private keysText = '';
-  private openExitText: string = TEXTS.hud.openDoor;
-  private missingCount = -1;
-  private missingText = '';
+  private exit: ExitKind = 'door';
+  private touch = false;
+  private readonly insets: SafeInsets = { top: 0, right: 0, bottom: 0, left: 0 };
+  private promptKind: Prompt = 'none';
+  private promptMissing = -1;
   private promptText = '';
   private promptWidth = 0;
 
   /** The prompt names the exit of the current level. */
   setExit(exit: ExitKind): void {
-    this.openExitText = exit === 'gate' ? TEXTS.hud.openGate : TEXTS.hud.openDoor;
+    this.exit = exit;
+    this.promptMissing = -1;
+  }
+
+  /** With touch controls the HUD drops the keys and keeps clear of the buttons. */
+  setTouch(touch: boolean): void {
+    this.touch = touch;
+    this.promptMissing = -1;
+  }
+
+  setInsets(insets: SafeInsets): void {
+    this.insets.top = insets.top;
+    this.insets.right = insets.right;
+    this.insets.bottom = insets.bottom;
+    this.insets.left = insets.left;
   }
 
   resize(dpr: number): void {
     this.unit = dpr;
     this.font = `${String(Math.round(FONT_SIZE * dpr))}px system-ui, sans-serif`;
     // Force the prompt to be measured again with the new font.
-    this.promptText = '';
+    this.promptMissing = -1;
   }
 
   draw(ctx: CanvasRenderingContext2D, world: World, width: number, height: number): void {
@@ -74,7 +98,7 @@ export class Hud {
     ctx.textBaseline = 'middle';
     this.drawPanel(ctx, world);
     this.drawPrompt(ctx, world, width, height);
-    this.drawSound(ctx, world.settings.muted, height);
+    this.drawSound(ctx, world.settings.muted, width, height);
     ctx.restore();
   }
 
@@ -105,8 +129,8 @@ export class Hud {
     const line = 26 * u;
     const near = world.enemyNear >= NEAR_TEXT_THRESHOLD;
     const lines = near ? 3 : 2;
-    const x = 12 * u;
-    const y = 12 * u;
+    const x = (MARGIN + this.insets.left) * u;
+    const y = (MARGIN + this.insets.top) * u;
 
     ctx.fillStyle = COLORS.panel;
     ctx.fillRect(x, y, 230 * u, pad * 2 + line * lines - 6 * u);
@@ -180,15 +204,27 @@ export class Hud {
     ctx.fill();
   }
 
-  /** Bottom-left sound state: speaker icon (crossed when off) and text. */
-  private drawSound(ctx: CanvasRenderingContext2D, muted: boolean, height: number): void {
+  /**
+   * Sound state: speaker icon, crossed when off. Bottom-left with its text; with touch
+   * controls that corner is for the thumbs, so only the icon, under the pause button.
+   */
+  private drawSound(
+    ctx: CanvasRenderingContext2D,
+    muted: boolean,
+    width: number,
+    height: number,
+  ): void {
     const u = this.unit;
-    const x = 12 * u;
-    const h = 30 * u;
-    const y = height - h - 12 * u;
+    const { insets, touch } = this;
+    const h = SOUND_HEIGHT * u;
+    const panelWidth = (touch ? TOUCH.pauseSize : SOUND_WIDTH) * u;
+    const x = touch ? width - panelWidth - (MARGIN + insets.right) * u : (MARGIN + insets.left) * u;
+    const y = touch
+      ? (MARGIN + insets.top + TOUCH.pauseSize + 8) * u
+      : height - h - (MARGIN + insets.bottom) * u;
     const cy = y + h / 2;
     ctx.fillStyle = COLORS.panel;
-    ctx.fillRect(x, y, 170 * u, h);
+    ctx.fillRect(x, y, panelWidth, h);
 
     const ix = x + 10 * u;
     ctx.fillStyle = COLORS.text;
@@ -214,7 +250,7 @@ export class Hud {
     }
     ctx.stroke();
 
-    ctx.fillText(muted ? TEXTS.hud.soundOff : TEXTS.hud.soundOn, ix + 30 * u, cy);
+    if (!touch) ctx.fillText(muted ? TEXTS.hud.soundOff : TEXTS.hud.soundOn, ix + 30 * u, cy);
   }
 
   private drawPrompt(
@@ -223,18 +259,15 @@ export class Hud {
     width: number,
     height: number,
   ): void {
-    const text = this.promptLabel(world.interact.prompt, missingKeys(world.inventory));
+    this.updatePrompt(ctx, world);
+    const text = this.promptText;
     if (text === '') return;
-    if (this.promptText !== text) {
-      this.promptText = text;
-      this.promptWidth = ctx.measureText(text).width;
-    }
     const u = this.unit;
     const padX = 14 * u;
     const h = 34 * u;
     const w = this.promptWidth + padX * 2;
     const x = (width - w) / 2;
-    const y = height - h - 28 * u;
+    const y = this.promptY(width, height, w, h);
     ctx.fillStyle = COLORS.panel;
     ctx.fillRect(x, y, w, h);
     ctx.fillStyle = COLORS.text;
@@ -269,22 +302,27 @@ export class Hud {
     return this.keysText;
   }
 
-  private promptLabel(prompt: Prompt, missing: number): string {
-    switch (prompt) {
-      case 'pickKey':
-        return TEXTS.hud.pickKey;
-      case 'pickBattery':
-        return TEXTS.hud.pickBattery;
-      case 'openDoor':
-        return this.openExitText;
-      case 'doorLocked':
-        if (missing !== this.missingCount) {
-          this.missingCount = missing;
-          this.missingText = TEXTS.hud.missingKeys(missing);
-        }
-        return this.missingText;
-      case 'none':
-        return '';
-    }
+  /** Builds and measures the prompt only when what it says changes. */
+  private updatePrompt(ctx: CanvasRenderingContext2D, world: World): void {
+    const prompt = world.interact.prompt;
+    const missing = missingKeys(world.inventory);
+    if (prompt === this.promptKind && missing === this.promptMissing) return;
+    this.promptKind = prompt;
+    this.promptMissing = missing;
+    this.promptText = promptText(prompt, missing, this.exit, this.touch);
+    this.promptWidth = ctx.measureText(this.promptText).width;
+  }
+
+  /** Near the bottom, or higher when the screen is too narrow to fit it beside what is there. */
+  private promptY(width: number, height: number, w: number, h: number): number {
+    const u = this.unit;
+    const { insets, touch } = this;
+    const bottom = height - insets.bottom * u;
+    // Checked on both sides: the prompt is centered and the buttons can be on either one.
+    const taken = touch ? TOUCH.buttonsWidth : MARGIN + SOUND_WIDTH + 8;
+    const side = (taken + Math.max(insets.left, insets.right)) * u;
+    if (w <= width - 2 * side) return bottom - h - 28 * u;
+    const below = touch ? TOUCH.buttonsHeight : MARGIN + SOUND_HEIGHT;
+    return bottom - h - (below + 8) * u;
   }
 }

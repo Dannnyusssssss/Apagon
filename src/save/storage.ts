@@ -1,3 +1,4 @@
+import { TOUCH_MODES, type TouchMode } from '../data/controls';
 import { LEVEL_COUNT } from '../data/levels';
 import { STORAGE_PREFIX } from '../data/meta';
 
@@ -16,6 +17,10 @@ export interface SaveData {
   classicLight: boolean;
   /** Aim the cone with the mouse. Missing in older saves: on. */
   mouseAim: boolean;
+  /** When the on-screen controls show. Missing in older saves: automatic. */
+  touchControls: TouchMode;
+  /** On-screen buttons on the left and the moving stick on the right. Missing: off. */
+  leftHanded: boolean;
   /** Highest level that can be continued from (1 is the first). */
   unlockedLevel: number;
   /** Best time in seconds of each level, in play order; null if not won yet. */
@@ -36,6 +41,8 @@ export function defaultSave(): SaveData {
     muted: false,
     classicLight: false,
     mouseAim: true,
+    touchControls: 'auto',
+    leftHanded: false,
     unlockedLevel: 1,
     bestLevelTimes: Array.from({ length: LEVEL_COUNT }, () => null),
     bestFullRunSeconds: null,
@@ -71,6 +78,12 @@ export function parseSave(raw: string | null): SaveData {
   if (isRecord(settings) && typeof settings['mouseAim'] === 'boolean') {
     data.mouseAim = settings['mouseAim'];
   }
+  if (isRecord(settings) && isTouchMode(settings['touchControls'])) {
+    data.touchControls = settings['touchControls'];
+  }
+  if (isRecord(settings) && typeof settings['leftHanded'] === 'boolean') {
+    data.leftHanded = settings['leftHanded'];
+  }
 
   const unlocked = parsed['unlockedLevel'];
   if (
@@ -101,11 +114,13 @@ export function parseSave(raw: string | null): SaveData {
 }
 
 export function serializeSave(data: SaveData): string {
-  const settings: Record<string, boolean> = {};
+  const settings: Record<string, boolean | string> = {};
   if (data.reduceFlicker !== null) settings['reduceFlicker'] = data.reduceFlicker;
   settings['muted'] = data.muted;
   settings['classicLight'] = data.classicLight;
   settings['mouseAim'] = data.mouseAim;
+  settings['touchControls'] = data.touchControls;
+  settings['leftHanded'] = data.leftHanded;
   return JSON.stringify({
     version: SAVE_VERSION,
     settings,
@@ -152,6 +167,10 @@ export function getBrowserStorage(): StorageLike | null {
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+function isTouchMode(value: unknown): value is TouchMode {
+  return TOUCH_MODES.some((mode) => mode === value);
 }
 
 function isValidTime(value: unknown): value is number {

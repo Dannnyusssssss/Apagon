@@ -1,3 +1,5 @@
+import { isTooSoonAfterOpening } from '../core/touch';
+import { TOUCH_MODES, type TouchMode } from '../data/controls';
 import { TITLE } from '../data/meta';
 import { TEXTS } from '../data/texts';
 import { formatTime } from './format';
@@ -11,7 +13,7 @@ interface ControlLine {
   readonly label: string;
 }
 
-function element<K extends keyof HTMLElementTagNameMap>(
+export function element<K extends keyof HTMLElementTagNameMap>(
   tag: K,
   className: string,
   text?: string,
@@ -32,6 +34,7 @@ class Screen {
   /** Icon color: warm light, or pale red on the defeat screen. */
   private readonly accent: string;
   private firstControl: HTMLElement | null = null;
+  private openedAt = 0;
 
   constructor(
     container: HTMLElement,
@@ -84,8 +87,8 @@ class Screen {
   }
 
   /** Controls as key caps, in a framed note. */
-  controls(title: string, lines: readonly ControlLine[], or: string): void {
-    const box = element('div', 'screen__controls');
+  controls(title: string, lines: readonly ControlLine[], or: string, className: string): void {
+    const box = element('div', `screen__controls ${className}`);
     box.append(element('p', 'screen__controls-title', title));
     const list = element('ul', 'screen__controls-list');
     for (const line of lines) {
@@ -116,22 +119,63 @@ class Screen {
     label: string,
     icon: IconKind,
     onChange: (checked: boolean) => void,
+    options: { className?: string; keyHint?: string } = {},
   ): HTMLInputElement {
-    const wrapper = element('label', 'screen__toggle');
+    const wrapper = element('label', `screen__toggle ${options.className ?? ''}`);
     const input = element('input', 'screen__switch');
     input.type = 'checkbox';
     input.addEventListener('change', () => onChange(input.checked));
-    wrapper.append(input, createIcon(icon, 20, '#e8dcc4'), element('span', '', label));
+    const text = element('span', '', label);
+    if (options.keyHint) text.append(element('span', 'only-keys', options.keyHint));
+    wrapper.append(input, createIcon(icon, 20, '#e8dcc4'), text);
     parent.append(wrapper);
     this.firstControl ??= input;
     return input;
   }
 
-  button(label: string, icon: IconKind, onClick: () => void): HTMLButtonElement {
+  /** Native radio buttons as one row with three parts. */
+  choice(
+    parent: HTMLElement,
+    name: string,
+    label: string,
+    note: string,
+    onChange: (mode: TouchMode) => void,
+  ): HTMLInputElement[] {
+    const group = element('fieldset', 'screen__choice touch-setting');
+    const legend = element('legend', 'screen__choice-title', label);
+    legend.prepend(createIcon('stick', 20, '#e8dcc4'));
+    group.append(legend);
+    const parts = element('div', 'screen__choice-parts');
+    const inputs = TOUCH_MODES.map((mode) => {
+      const wrapper = element('label', 'screen__choice-part');
+      const input = element('input', 'screen__choice-input');
+      input.type = 'radio';
+      input.name = name;
+      input.value = mode;
+      input.addEventListener('change', () => onChange(mode));
+      wrapper.append(input, element('span', '', TEXTS.settings.touchModes[mode]));
+      parts.append(wrapper);
+      return input;
+    });
+    group.append(parts, element('p', 'screen__text screen__text--small', note));
+    parent.append(group);
+    return inputs;
+  }
+
+  /**
+   * `guarded` makes the button ignore a tap right after the screen opens: the player may
+   * still be pressing the game controls when the run ends.
+   */
+  button(label: string, icon: IconKind, onClick: () => void, guarded = false): HTMLButtonElement {
     const button = element('button', 'screen__button');
     button.type = 'button';
     button.append(createIcon(icon, 24, this.accent), element('span', '', label));
-    button.addEventListener('click', onClick);
+    button.addEventListener('click', (event) => {
+      // A keyboard or screen reader click has no pointer behind it, so it is deliberate.
+      const tapped = event.detail !== 0;
+      if (guarded && tapped && isTooSoonAfterOpening(performance.now(), this.openedAt)) return;
+      onClick();
+    });
     this.panel.append(button);
     // The main button gets focus when the screen opens.
     this.firstControl = button;
@@ -144,6 +188,7 @@ class Screen {
   }
 
   show(focus: boolean): void {
+    this.openedAt = performance.now();
     this.root.hidden = false;
     if (focus) this.firstControl?.focus();
   }
@@ -163,6 +208,8 @@ export interface ScreenHandlers {
   onMute(checked: boolean): void;
   onClassicLight(checked: boolean): void;
   onMouseAim(checked: boolean): void;
+  onLeftHanded(checked: boolean): void;
+  onTouchMode(mode: TouchMode): void;
 }
 
 /** What the screen between two levels shows. */
@@ -194,6 +241,8 @@ export class Screens {
   private readonly muteBoxes: HTMLInputElement[] = [];
   private readonly classicBoxes: HTMLInputElement[] = [];
   private readonly mouseAimBoxes: HTMLInputElement[] = [];
+  private readonly leftHandedBoxes: HTMLInputElement[] = [];
+  private readonly touchModeInputs: HTMLInputElement[] = [];
   private readonly continueButton: HTMLButtonElement;
   private readonly newGameButton: HTMLButtonElement;
   private readonly pauseLevel: HTMLParagraphElement;
@@ -214,20 +263,23 @@ export class Screens {
     this.start.divider('flashlight');
     this.start.text(s.goal, 'screen__text screen__text--lead');
     this.start.text(s.light);
-    this.start.controls(s.controlsTitle, s.controls, s.or);
-    this.start.text(s.shiftHint, 'screen__text screen__text--small');
+    this.start.text(TEXTS.touch.landscape, 'screen__text screen__text--small only-portrait');
+    this.start.controls(s.controlsTitle, s.controls, s.or, 'only-keys');
+    this.start.controls(s.controlsTitle, TEXTS.touch.controls, s.or, 'only-touch');
+    this.start.text(s.shiftHint, 'screen__text screen__text--small only-keys');
     this.addSettings(this.start, handlers);
     this.start.text(s.lightNotice, 'screen__text screen__text--small');
     this.continueButton = this.start.button('', 'flashlight', handlers.onContinue);
     this.newGameButton = this.start.button(s.newGame, 'retry', handlers.onNewGame);
-    this.start.text(s.leave, 'screen__text screen__text--small');
+    this.start.text(s.leave, 'screen__text screen__text--small only-keys');
 
     this.pause = new Screen(container, 'pause', TEXTS.pause.title, 'h2', 'pause');
     this.pauseLevel = this.pause.text('', 'screen__text screen__text--small');
-    this.pause.controls(s.controlsTitle, s.controls, s.or);
+    this.pause.controls(s.controlsTitle, s.controls, s.or, 'only-keys');
+    this.pause.controls(s.controlsTitle, TEXTS.touch.controls, s.or, 'only-touch');
     this.addSettings(this.pause, handlers);
     this.pause.button(TEXTS.pause.resume, 'resume', handlers.onResume);
-    this.pause.text(s.leave, 'screen__text screen__text--small');
+    this.pause.text(s.leave, 'screen__text screen__text--small only-keys');
 
     const done = TEXTS.levelDone;
     this.levelDone = new Screen(container, 'level', done.title, 'h2', 'door');
@@ -237,18 +289,18 @@ export class Screens {
     this.levelDone.divider('flashlight');
     this.levelDoneNext = this.levelDone.text('', 'screen__text screen__text--lead');
     this.levelDoneIntro = this.levelDone.text('');
-    this.levelDone.button(done.next, 'resume', handlers.onNextLevel);
+    this.levelDone.button(done.next, 'resume', handlers.onNextLevel, true);
 
     this.victory = new Screen(container, 'victory', TEXTS.victory.title, 'h2', 'door');
     this.victoryTotal = this.victory.text('', 'screen__text screen__text--lead');
     this.victoryDetail = this.victory.text('', 'screen__text screen__text--small');
     this.victoryNewBest = this.victory.text(TEXTS.victory.newBest, 'screen__note');
-    this.victory.button(TEXTS.victory.again, 'retry', handlers.onNewGame);
+    this.victory.button(TEXTS.victory.again, 'retry', handlers.onNewGame, true);
 
     this.defeat = new Screen(container, 'defeat', TEXTS.defeat.title, 'h2', 'eyes');
     this.defeatLevel = this.defeat.text('', 'screen__text screen__text--small');
     this.defeat.text(TEXTS.defeat.hint, 'screen__text screen__text--lead');
-    this.defeat.button(TEXTS.defeat.retry, 'retry', handlers.onRetry);
+    this.defeat.button(TEXTS.defeat.retry, 'retry', handlers.onRetry, true);
 
     this.all = [this.start, this.pause, this.levelDone, this.victory, this.defeat];
   }
@@ -258,12 +310,32 @@ export class Screens {
     this.reduceBoxes.push(
       screen.toggle(row, TEXTS.settings.reduceFlicker, 'flicker', handlers.onReduceFlicker),
     );
-    this.muteBoxes.push(screen.toggle(row, TEXTS.settings.mute, 'sound', handlers.onMute));
+    this.muteBoxes.push(
+      screen.toggle(row, TEXTS.settings.mute, 'sound', handlers.onMute, {
+        keyHint: TEXTS.settings.muteKey,
+      }),
+    );
     this.classicBoxes.push(
       screen.toggle(row, TEXTS.settings.classicLight, 'flashlight', handlers.onClassicLight),
     );
     this.mouseAimBoxes.push(
-      screen.toggle(row, TEXTS.settings.mouseAim, 'aim', handlers.onMouseAim),
+      screen.toggle(row, TEXTS.settings.mouseAim, 'aim', handlers.onMouseAim, {
+        className: 'only-mouse',
+      }),
+    );
+    this.leftHandedBoxes.push(
+      screen.toggle(row, TEXTS.settings.leftHanded, 'hand', handlers.onLeftHanded, {
+        className: 'touch-setting',
+      }),
+    );
+    this.touchModeInputs.push(
+      ...screen.choice(
+        row,
+        `touch-mode-${String(this.touchModeInputs.length)}`,
+        TEXTS.settings.touchControls,
+        TEXTS.settings.touchNever,
+        handlers.onTouchMode,
+      ),
     );
   }
 
@@ -281,6 +353,14 @@ export class Screens {
 
   setMouseAim(checked: boolean): void {
     for (const box of this.mouseAimBoxes) box.checked = checked;
+  }
+
+  setLeftHanded(checked: boolean): void {
+    for (const box of this.leftHandedBoxes) box.checked = checked;
+  }
+
+  setTouchMode(mode: TouchMode): void {
+    for (const input of this.touchModeInputs) input.checked = input.value === mode;
   }
 
   /**
