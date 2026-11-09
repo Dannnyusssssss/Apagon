@@ -8,8 +8,12 @@ Estás atrapado en una casa a oscuras. Solo ves lo que alcanza tu linterna. Encu
 
 ## Cómo se juega
 
-- La casa tiene tres habitaciones: entrada, salón y sótano. En cada una hay **una llave**; cambian de sitio en cada partida.
-- Con las tres llaves, abre la **puerta de salida** del sótano.
+- Hay **tres niveles**, de menos a más difícil:
+  1. **La casa:** entrada, salón y sótano.
+  2. **El sótano profundo:** pasillos estrechos, menos pilas y menos batería, y lo que te persigue corre más.
+  3. **El bosque:** de noche, entre árboles y rocas. Aquí son **dos** los que te persiguen.
+- Cada nivel tiene tres zonas con **una llave** en cada una; cambian de sitio en cada partida. Con las tres llaves, abre la **salida**: una puerta o, en el bosque, una verja.
+- **Continuar** retoma el nivel más alto que hayas alcanzado y **Nueva partida** empieza desde el primero. Se guarda tu mejor tiempo de cada nivel y el de la partida completa, que solo cuenta si juegas los tres seguidos desde "Nueva partida". Los intentos fallidos también suman tiempo.
 - Algo te persigue en la oscuridad. La linterna alumbra **hacia donde caminas**: si le apuntas, **la luz lo detiene un rato**, pero se acostumbra a ella, y a oscuras es más rápido. Lo que llega por la espalda no se detiene.
 - La linterna **gasta batería**: su alcance se estrecha al gastarse. Busca **pilas** para recargarla.
 
@@ -19,7 +23,7 @@ Estás atrapado en una casa a oscuras. Solo ves lo que alcanza tu linterna. Encu
 |---|---|
 | W A S D o flechas | Moverse |
 | Shift o F | Encender o apagar la linterna |
-| E | Recoger llaves y pilas, abrir la puerta |
+| E | Recoger llaves y pilas, abrir la salida |
 | Esc o P | Pausa |
 | M | Silenciar el sonido |
 | Tab | Salir del juego (deja de capturar el teclado) |
@@ -40,7 +44,7 @@ Oscuridad, tensión y persecución. Sin sangre ni imágenes explícitas. Incluye
 
 ## Privacidad
 
-El juego no recoge datos personales ni se conecta a ningún servicio. Solo guarda en tu navegador los ajustes (reducir parpadeo, silencio) y tu mejor tiempo, con la clave `apagon:v1`.
+El juego no recoge datos personales ni se conecta a ningún servicio. Solo guarda en tu navegador los ajustes (reducir parpadeo, silencio, linterna clásica), el nivel alcanzado y tus mejores tiempos, con la clave `apagon:v1`.
 
 ## Desarrollo
 
@@ -55,7 +59,7 @@ npm run build     # comprobar tipos y generar dist/
 npm run preview   # servir dist/
 ```
 
-Hecho con Vite, TypeScript y Canvas 2D, sin motores ni dependencias en tiempo de ejecución. Todo el arte se dibuja con código y todo el sonido, música incluida, se sintetiza con WebAudio. Herramientas de desarrollo: ver [docs/DEBUG.md](docs/DEBUG.md).
+Hecho con Vite, TypeScript y Canvas 2D, sin motores ni dependencias en tiempo de ejecución. Todo el arte se dibuja con código y todo el sonido, música incluida, se sintetiza con WebAudio. Cómo está hecho: ver [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md). Herramientas de desarrollo: ver [docs/DEBUG.md](docs/DEBUG.md).
 
 ## Despliegue
 
