@@ -74,7 +74,8 @@ body {
   inset: 0;
   background: radial-gradient(circle at 50% 38%, rgba(255, 196, 120, 0.13), transparent 45vmax);
   pointer-events: none;
-  animation: screen-breathe 4s ease-in-out infinite alternate;
+  /* Small steps look the same and spare recomposing the whole screen on every refresh. */
+  animation: screen-breathe 4s steps(16) infinite alternate;
 }
 
 .screen--defeat .screen__halo {
