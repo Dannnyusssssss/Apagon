@@ -16,6 +16,7 @@ import {
   type EnemyAudioConfig,
 } from './audio/spatial';
 import { parseDebugParams } from './core/debugParams';
+import { FramePacer } from './core/framePacer';
 import { attachKeyboard, InputState } from './core/input';
 import { FixedStepClock, GameLoop } from './core/loop';
 import type { Vec2 } from './core/math';
@@ -60,7 +61,7 @@ let chosenReduceFlicker = save.reduceFlicker;
 
 // Debug options are read once; without them nothing extra is created (see docs/DEBUG.md).
 const debugParams = parseDebugParams(window.location.search);
-const debugOverlay = debugParams.debug ? new DebugOverlay(container) : null;
+const debugOverlay = debugParams.debug ? new DebugOverlay(container, gameCanvas) : null;
 
 // The seed only picks among the fixed enemy starts and item spots of each map.
 const seed = debugParams.seed ?? Date.now() >>> 0;
@@ -114,6 +115,8 @@ renderer.setLevel(levelAt(run.levelIndex));
 
 type AppState = 'start' | 'playing' | 'paused' | 'levelDone' | 'won' | 'lost';
 let state: AppState = 'start';
+/** Nothing moves on a menu: the canvas is drawn again only when something changes behind it. */
+let redraw = true;
 
 const screens = new Screens(container, {
   onContinue: () => {
@@ -145,6 +148,7 @@ const screens = new Screens(container, {
     // Applies at once, even from the pause menu: shape and difficulty.
     setLightMode(world, checked);
     screens.setClassicLight(checked);
+    redraw = true;
     persist();
   },
 });
@@ -159,6 +163,7 @@ function loadLevel(): void {
   const { reduceFlicker, muted, classicLight } = world.settings;
   world = buildWorld(run.levelIndex, { reduceFlicker, muted, classicLight });
   renderer.setLevel(levelAt(run.levelIndex));
+  redraw = true;
 }
 
 function levelLabel(index: number): string {
@@ -185,6 +190,7 @@ function setMuted(muted: boolean): void {
   world.settings.muted = muted;
   sfx.setMuted(muted);
   screens.setMuted(muted);
+  redraw = true;
   persist();
 }
 
@@ -260,6 +266,7 @@ function startRun(): void {
 function pause(focusMenu: boolean): void {
   if (state !== 'playing') return;
   state = 'paused';
+  redraw = true;
   input.clear();
   sfx.suspend();
   screens.showPause(focusMenu, levelLabel(run.levelIndex));
@@ -275,6 +282,7 @@ function resume(): void {
 }
 
 function finishRun(): void {
+  redraw = true;
   sfx.setMusicOn(false);
   sfx.setEnemyAudible(false);
   sfx.setBatteryLevel(0);
@@ -314,16 +322,27 @@ gameCanvas.addEventListener('blur', () => pause(false));
 document.addEventListener('visibilitychange', () => {
   if (document.hidden) pause(false);
 });
-window.addEventListener('resize', () => renderer.resize());
+window.addEventListener('resize', () => {
+  renderer.resize();
+  redraw = true;
+});
 
 const axis: Vec2 = { x: 0, y: 0 };
 const stepInput: StepInput = { axisX: 0, axisY: 0, toggleFlashlight: false, interact: false };
 
 const sim = BALANCE.simulation;
+const pacer = new FramePacer(sim.targetFps);
 const loop = new GameLoop(
   new FixedStepClock(sim.stepSeconds, sim.maxStepsPerFrame, sim.maxFrameSeconds),
+  pacer,
   {
     isRunning: () => state === 'playing',
+    shouldRender: () => {
+      if (state === 'playing') return true;
+      const needed = redraw;
+      redraw = false;
+      return needed;
+    },
     update: (stepSeconds) => {
       if (state !== 'playing') return;
       if (input.consumePause()) {
@@ -343,7 +362,12 @@ const loop = new GameLoop(
     },
     render: (alpha) => {
       renderer.render(world, alpha);
-      debugOverlay?.frame(performance.now(), world, state, levelAt(run.levelIndex).id);
+      debugOverlay?.frame(performance.now(), world, {
+        state,
+        level: levelAt(run.levelIndex).id,
+        divisor: pacer.divisor,
+        playing: state === 'playing',
+      });
     },
   },
 );

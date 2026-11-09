@@ -1,3 +1,5 @@
+import type { FramePacer } from './framePacer';
+
 /** Tolerance so that a delta of exactly one step is not lost to rounding. */
 const EPSILON = 1e-9;
 
@@ -46,8 +48,10 @@ export class FixedStepClock {
 export interface LoopCallbacks {
   update(stepSeconds: number): void;
   render(alpha: number): void;
-  /** When false, logic is frozen but rendering continues. */
+  /** When false, logic is frozen. */
   isRunning(): boolean;
+  /** Asked after the logic of each frame: nothing moves on a menu, so it need not be redrawn. */
+  shouldRender(): boolean;
 }
 
 /** Drives a FixedStepClock with requestAnimationFrame. */
@@ -57,6 +61,7 @@ export class GameLoop {
 
   constructor(
     private readonly clock: FixedStepClock,
+    private readonly pacer: FramePacer,
     private readonly callbacks: LoopCallbacks,
   ) {}
 
@@ -69,6 +74,11 @@ export class GameLoop {
   }
 
   private readonly frame = (time: number): void => {
+    if (!this.pacer.shouldDraw(time)) {
+      this.frameId = requestAnimationFrame(this.frame);
+      return;
+    }
+
     const delta = this.lastTime < 0 ? 0 : (time - this.lastTime) / 1000;
     this.lastTime = time;
 
@@ -81,7 +91,7 @@ export class GameLoop {
       this.clock.reset();
     }
 
-    this.callbacks.render(this.clock.alpha);
+    if (this.callbacks.shouldRender()) this.callbacks.render(this.clock.alpha);
     this.frameId = requestAnimationFrame(this.frame);
   };
 }
