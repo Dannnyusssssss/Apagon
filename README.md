@@ -14,7 +14,7 @@ Estás atrapado a oscuras. Solo ves lo que alcanza tu linterna. Encuentra las ll
   3. **El bosque:** de noche, entre árboles y rocas. Aquí son **dos** los que te persiguen.
 - Cada nivel tiene tres zonas con **una llave** en cada una; cambian de sitio en cada partida. Con las tres llaves, abre la **salida**: una puerta o, en el bosque, una verja.
 - **Continuar** retoma el nivel más alto que hayas alcanzado y **Nueva partida** empieza desde el primero. Se guarda tu mejor tiempo de cada nivel y el de la partida completa, que solo cuenta si juegas los tres seguidos desde "Nueva partida". Los intentos fallidos también suman tiempo.
-- Algo te persigue en la oscuridad. La linterna alumbra **hacia el cursor del ratón** o, si solo usas el teclado, hacia donde caminas: si le apuntas, **la luz lo detiene un rato**, pero se acostumbra a ella, y a oscuras es más rápido. Lo que llega por la espalda no se detiene.
+- Algo te persigue en la oscuridad. La linterna alumbra **hacia el cursor del ratón**, hacia donde indiques con el segundo joystick en pantallas táctiles o, si no apuntas, hacia donde caminas: si le apuntas, **la luz lo detiene un rato**, pero se acostumbra a ella, y a oscuras es más rápido. Lo que llega por la espalda no se detiene.
 - La linterna **gasta batería**: su alcance se estrecha al gastarse. Busca **pilas** para recargarla.
 
 ## Controles
@@ -31,6 +31,18 @@ Estás atrapado a oscuras. Solo ves lo que alcanza tu linterna. Encuentra las ll
 
 Si Shift abre un aviso del sistema, usa F.
 
+### En celular o tableta
+
+| Control | Acción |
+|---|---|
+| Arrastrar en el lado sin botones | Moverse |
+| Arrastrar en el lado de los botones | Apuntar la linterna (opcional) |
+| Botón Linterna | Encender o apagar la linterna |
+| Botón Interactuar | Recoger llaves y pilas, abrir la salida; muestra la acción disponible |
+| Botón de pausa | Pausa |
+
+Los controles aparecen solos al tocar la pantalla. Se juega mejor en horizontal, pero también funciona en vertical. Se puede mover y pulsar a la vez, y el teclado sigue funcionando en equipos con ambos.
+
 ## Accesibilidad
 
 - **Reducir parpadeo** (en el inicio y en la pausa): quita el parpadeo suave de la linterna y las animaciones del menú. Se activa solo si el sistema tiene activado "reducir movimiento". Aun sin activarlo, ningún cambio de luz supera 3 por segundo ni apaga la pantalla.
@@ -38,7 +50,8 @@ Si Shift abre un aviso del sistema, usa F.
 - **Linterna clásica (más fácil)** (en el inicio y en la pausa): cambia el haz por un círculo de luz alrededor del personaje, que detiene al enemigo venga de donde venga. Se guarda en el navegador.
 - **Apuntar con el ratón** (en el inicio y en la pausa): se puede desactivar. Sin ratón, el juego se completa solo con teclado.
 - **Sonido posicional:** con auriculares se oye de qué lado y a qué distancia está el enemigo, y suena apagado si hay paredes de por medio. Cuando está cerca, el borde de la pantalla se oscurece más por el lado del que viene.
-- Se puede jugar entero con teclado. El juego se pausa solo al perder el foco.
+- **Controles táctiles** (en el inicio y en la pausa, en dispositivos táctiles): automático, siempre o nunca. **Controles a la izquierda (zurdos)** intercambia los lados. Ninguna acción exige un gesto de varios dedos.
+- Se puede jugar entero con teclado o con los dedos. El juego se pausa solo al perder el foco.
 
 ## Contenido
 
@@ -46,7 +59,7 @@ Oscuridad, tensión y persecución. Sin sangre ni imágenes explícitas. Incluye
 
 ## Privacidad
 
-El juego no recoge datos personales ni se conecta a ningún servicio. Solo guarda en tu navegador los ajustes (reducir parpadeo, silencio, linterna clásica, apuntar con el ratón), el nivel alcanzado y tus mejores tiempos, con la clave `apagon:v1`.
+El juego no recoge datos personales ni se conecta a ningún servicio. Solo guarda en tu navegador los ajustes (reducir parpadeo, silencio, linterna clásica, apuntar con el ratón, controles táctiles y zurdos), el nivel alcanzado y tus mejores tiempos, con la clave `apagon:v1`.
 
 ## Desarrollo
 

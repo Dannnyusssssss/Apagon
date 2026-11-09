@@ -7,11 +7,11 @@ Apagón es un juego de terror en vista superior hecho con TypeScript, Canvas 2D 
 ```
 src/
   main.ts     Arranque: une la lógica, el dibujo, el sonido, las pantallas y el guardado
-  core/       Piezas sin relación con el juego: bucle, aleatoriedad con semilla, teclado, cámara, ángulos
+  core/       Piezas sin relación con el juego: bucle, aleatoriedad con semilla, teclado, ratón, joysticks táctiles, cámara, ángulos
   data/       Datos tipados: mapas, niveles, ajustes de dificultad, textos y título
   game/       Lógica pura: mundo, jugador, enemigos, objetos, visibilidad y sistemas
   render/     Dibujo en Canvas 2D: mapa, luz, figuras e indicadores en pantalla
-  ui/         Pantallas en HTML: inicio, pausa, entre niveles, victoria y derrota
+  ui/         Pantallas en HTML (inicio, pausa, entre niveles, victoria y derrota) y controles táctiles
   audio/      Sonido con WebAudio y la lógica pura que decide qué suena
   save/       Guardado en localStorage y récords de la partida
 tests/        Pruebas de la lógica pura
@@ -22,7 +22,7 @@ docs/         Documentación pública
 ## Capas
 
 ```
-      teclado y ratón
+  teclado, ratón y toques
              │
              ▼
  main.ts ──► game/ ──► eventos y estado
@@ -39,7 +39,7 @@ docs/         Documentación pública
 ## Flujo de una partida
 
 1. `core/loop.ts` avanza la lógica en pasos fijos de 1/60 de segundo. El dibujo interpola entre pasos y `core/framePacer.ts` decide cada cuántos refrescos del monitor se dibuja.
-2. `main.ts` lee el teclado y el ratón y llama a `stepWorld` en `game/world.ts`, el único lugar donde se declara el orden de los sistemas: linterna, batería, movimiento, puntería, interacción, mapa de distancias, luz y persecución de cada enemigo, separación, parpadeo, avisos y captura.
+2. `main.ts` lee el teclado, el ratón y los joysticks táctiles y llama a `stepWorld` en `game/world.ts`, el único lugar donde se declara el orden de los sistemas: linterna, batería, movimiento, puntería, interacción, mapa de distancias, luz y persecución de cada enemigo, separación, parpadeo, avisos y captura.
 3. Los sistemas anotan lo ocurrido en `game/events.ts`. El sonido lee esos contadores y `main.ts` los limpia.
 4. Cuando la partida termina, `main.ts` actualiza los récords con `save/progress.ts`, guarda con `save/storage.ts` y abre la pantalla que corresponde.
 
@@ -51,6 +51,7 @@ docs/         Documentación pública
 - **Dificultad por multiplicadores.** Un nivel multiplica la velocidad del enemigo y la duración de la batería sobre los valores de la linterna activa, así cada nivel funciona con el cono y con la linterna clásica.
 - **Varios enemigos, un mapa de distancias.** El mapa se calcula desde el jugador y lo comparten todos. Cada enemigo guarda su propio estado de luz y su costumbre. Para que no terminen superpuestos, el más alejado del jugador se aparta suavemente; el de delante nunca recibe ese empuje, de modo que la separación no puede hacerlo más rápido. El sonido y los avisos siguen al más cercano.
 - **Apuntar es opcional.** Con el ratón, el haz sigue al cursor y queda separado de la dirección en que se camina. `core/pointer.ts` solo guarda la posición, `render/` la convierte a un punto del mapa con la cámara y `game/` recibe ese punto, sin saber que existe un ratón. Sin mover el ratón durante la partida, el haz sigue el camino, así que se puede jugar solo con teclado.
+- **El táctil entra por el mismo lugar.** `core/joystick.ts` y `core/touch.ts` son lógica pura: siguen cada dedo por su `pointerId`, deciden qué joystick le toca y dan una dirección. `game/` recibe los mismos ejes y el mismo punto de apuntado que con teclado y ratón, y los botones piden las mismas acciones, así que las mecánicas no cambian. Los joysticks escuchan en el propio lienzo y los botones quedan fuera del orden de Tab: tocarlos no le quita el foco al juego, y Tab sigue saliendo de él. Solo la zona de juego cancela gestos; los menús se siguen desplazando y ampliando.
 - **El coste está en los píxeles.** La lógica gasta poco; lo caro es rellenar la pantalla. Por eso se limitan los FPS con un divisor entero del refresco del monitor (a 144 Hz se dibuja a 72 FPS, cada frame con el mismo tiempo en pantalla), `core/resolution.ts` limita la densidad del lienzo, la capa de oscuridad usa la mitad de resolución porque solo contiene formas suaves, y en menús y pausa el lienzo se dibuja una sola vez.
 - **Sin objetos nuevos en cada paso.** Rutas, polígonos de luz y figuras reutilizan memoria o se dibujan una sola vez, para evitar pausas del recolector de basura.
 - **Pensado para un marco.** El juego funciona dentro de un `iframe`: no navega fuera, no abre ventanas, no roba el foco al cargar y deja salir con Tab.
@@ -62,7 +63,7 @@ Se usa una sola clave de `localStorage`, `apagon:v1`, con los ajustes, el nivel 
 
 ## Pruebas
 
-Las pruebas usan Vitest y cubren la lógica pura: visibilidad, persecución, batería, objetos, guardado, progreso, audio posicional y datos de cada nivel. `tests/levels.test.ts` también juega cada nivel con un jugador simulado sobre los sistemas reales, con los enemigos activos. Comprueba que se pueden ganar, aunque no sirve para medir si la dificultad resulta justa para una persona. El dibujo y el sonido real no tienen pruebas automáticas y se revisan a mano.
+Las pruebas usan Vitest y cubren la lógica pura: visibilidad, persecución, batería, objetos, joysticks y toques múltiples, guardado, progreso, audio posicional y datos de cada nivel. `tests/levels.test.ts` también juega cada nivel con un jugador simulado sobre los sistemas reales, con los enemigos activos. Comprueba que se pueden ganar, aunque no sirve para medir si la dificultad resulta justa para una persona. El dibujo y el sonido real no tienen pruebas automáticas y se revisan a mano.
 
 ## Cómo agregar un nivel
 
@@ -74,7 +75,7 @@ Las pruebas de `tests/levels.test.ts` recorren `LEVELS`, así que el nivel nuevo
 
 ## Límites conocidos
 
-- No hay controles táctiles: hacen falta teclado, y opcionalmente ratón.
+- Los controles táctiles se probaron con toques simulados en un navegador de escritorio, no en dispositivos reales.
 - Árboles y rocas se dibujan con formas orgánicas, pero chocan como casillas cuadradas.
 - En el bosque, la luz dibujada entra en árboles y rocas para que se distingan, mientras que la lógica se detiene en el borde de la casilla. Lo que se ve y lo que frena al enemigo no coinciden del todo en esas casillas.
 - No hay selector de niveles: se avanza en orden.
