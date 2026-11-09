@@ -10,7 +10,8 @@ export interface AreaDef {
 /**
  * Map layouts as text grids.
  * '#' wall · '.' floor · 'P' player start (floor) · 'E' possible enemy start (floor)
- * 'K' possible key spot (floor) · 'B' possible battery spot (floor) · 'D' exit door (solid).
+ * 'K' possible key spot (floor) · 'B' possible battery spot (floor) · 'D' exit door (solid)
+ * 'T' tree (solid) · 'R' rock (solid).
  *
  * With areas, each run places one key in every area that has 'K' spots, picked
  * with the seeded RNG; without areas, every 'K' is a key. `batteryCount` batteries

@@ -4,6 +4,9 @@ export const TILE_FLOOR = 0;
 export const TILE_WALL = 1;
 /** The exit door: solid for bodies and light, like a wall. */
 export const TILE_DOOR = 2;
+/** Solid like a wall for bodies and light; only the drawing changes. */
+export const TILE_TREE = 3;
+export const TILE_ROCK = 4;
 
 export interface TileCoord {
   readonly col: number;
@@ -51,9 +54,11 @@ export function parseRoom(def: RoomDef, tileSize: number): RoomGrid {
     for (let col = 0; col < cols; col++) {
       const ch = line[col];
       const here = { col, row };
-      tiles[row * cols + col] = ch === '#' ? TILE_WALL : ch === 'D' ? TILE_DOOR : TILE_FLOOR;
+      tiles[row * cols + col] = tileFromChar(ch);
       switch (ch) {
         case '#':
+        case 'T':
+        case 'R':
         case '.':
           break;
         case 'P':
@@ -123,6 +128,21 @@ export function parseRoom(def: RoomDef, tileSize: number): RoomGrid {
   }
   if (!hasFloorNeighbour(room, exit)) throw new Error(`Room "${def.id}" door cannot be reached`);
   return room;
+}
+
+function tileFromChar(ch: string | undefined): number {
+  switch (ch) {
+    case '#':
+      return TILE_WALL;
+    case 'D':
+      return TILE_DOOR;
+    case 'T':
+      return TILE_TREE;
+    case 'R':
+      return TILE_ROCK;
+    default:
+      return TILE_FLOOR;
+  }
 }
 
 function hasFloorNeighbour(room: RoomGrid, tile: TileCoord): boolean {

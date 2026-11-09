@@ -458,6 +458,94 @@ export function createDoorSprite(ready: boolean): HTMLCanvasElement {
   return canvas;
 }
 
+/** Iron gate of the forest: bars on a dark frame, with a lock that lights up like the door's. */
+export function createGateSprite(ready: boolean): HTMLCanvasElement {
+  const [canvas, ctx] = createCanvas(DOOR_SPRITE_SIZE);
+  const s = DOOR_SPRITE_SIZE;
+
+  ctx.fillStyle = '#0d120e';
+  ctx.fillRect(0, 0, s, s);
+  const iron = ctx.createLinearGradient(0, 0, s, 0);
+  iron.addColorStop(0, '#5d666b');
+  iron.addColorStop(1, '#2d3336');
+  ctx.fillStyle = iron;
+  for (let i = 0; i < 5; i++) {
+    ctx.fillRect(s * (0.08 + i * 0.19), s * 0.04, s * 0.07, s * 0.92);
+  }
+  ctx.fillRect(0, s * 0.12, s, s * 0.08);
+  ctx.fillRect(0, s * 0.8, s, s * 0.08);
+
+  const c = s / 2;
+  if (ready) {
+    const halo = ctx.createRadialGradient(c, c, 0, c, c, s * 0.3);
+    halo.addColorStop(0, 'rgba(255, 230, 140, 0.8)');
+    halo.addColorStop(1, 'rgba(255, 230, 140, 0)');
+    ctx.fillStyle = halo;
+    ctx.fillRect(0, 0, s, s);
+  }
+  ctx.fillStyle = ready ? '#ffe08a' : '#9a9a9a';
+  ctx.fillRect(c - s * 0.13, c - s * 0.11, s * 0.26, s * 0.22);
+  ctx.fillStyle = '#1a1208';
+  ctx.fillRect(c - s * 0.02, c - s * 0.05, s * 0.04, s * 0.1);
+  return canvas;
+}
+
+const OBSTACLE_SPRITE_SIZE = 96;
+
+/** Tree seen from above: a dark, uneven crown that nearly fills its tile. */
+export function createTreeSprite(): HTMLCanvasElement {
+  const [canvas, ctx] = createCanvas(OBSTACLE_SPRITE_SIZE);
+  const s = OBSTACLE_SPRITE_SIZE;
+  const lobes = [
+    [0.5, 0.5, 0.36],
+    [0.3, 0.34, 0.2],
+    [0.7, 0.32, 0.2],
+    [0.28, 0.68, 0.2],
+    [0.72, 0.68, 0.2],
+  ] as const;
+  for (const [x, y, r] of lobes) {
+    const crown = ctx.createRadialGradient(s * x, s * (y - 0.05), 0, s * x, s * y, s * r);
+    crown.addColorStop(0, '#3f6b47');
+    crown.addColorStop(0.7, '#25442c');
+    crown.addColorStop(1, '#16291b');
+    ctx.fillStyle = crown;
+    ctx.beginPath();
+    ctx.arc(s * x, s * y, s * r, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  return canvas;
+}
+
+/** Rock seen from above: a pale, angular stone with a lit top edge. */
+export function createRockSprite(): HTMLCanvasElement {
+  const [canvas, ctx] = createCanvas(OBSTACLE_SPRITE_SIZE);
+  const s = OBSTACLE_SPRITE_SIZE;
+  const outline = [
+    [0.18, 0.3],
+    [0.45, 0.12],
+    [0.78, 0.2],
+    [0.9, 0.55],
+    [0.72, 0.86],
+    [0.32, 0.9],
+    [0.1, 0.62],
+  ] as const;
+  ctx.beginPath();
+  outline.forEach(([x, y], i) => {
+    if (i === 0) ctx.moveTo(s * x, s * y);
+    else ctx.lineTo(s * x, s * y);
+  });
+  ctx.closePath();
+  const stone = ctx.createLinearGradient(0, s * 0.1, 0, s * 0.9);
+  stone.addColorStop(0, '#8b9190');
+  stone.addColorStop(1, '#3d4342');
+  ctx.fillStyle = stone;
+  ctx.fill();
+  ctx.lineWidth = s * 0.03;
+  ctx.strokeStyle = 'rgba(0, 0, 0, 0.5)';
+  ctx.stroke();
+  return canvas;
+}
+
 /** Dark edge vignette for the "enemy near" signal. Stretched over the screen. */
 export function createVignetteSprite(): HTMLCanvasElement {
   const size = 256;
