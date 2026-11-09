@@ -60,6 +60,7 @@ describe('parseSave', () => {
       reduceFlicker: true,
       muted: false,
       classicLight: false,
+      mouseAim: true,
       unlockedLevel: 2,
       bestLevelTimes: [42.5, 80, null],
       bestFullRunSeconds: 300,
@@ -212,6 +213,29 @@ describe('isNewBest', () => {
     expect(isNewBest(60, 50)).toBe(false);
     expect(isNewBest(50, 50)).toBe(false);
     expect(isNewBest(Number.NaN, null)).toBe(false);
+  });
+});
+
+describe('mouse aim setting', () => {
+  it('is on by default and in older saves', () => {
+    expect(defaultSave().mouseAim).toBe(true);
+    expect(parseSave(JSON.stringify({ version: 1, settings: { muted: true } })).mouseAim).toBe(
+      true,
+    );
+  });
+
+  it('reads it field by field', () => {
+    const read = (value: unknown): boolean =>
+      parseSave(JSON.stringify({ version: 1, settings: { mouseAim: value } })).mouseAim;
+    expect(read(false)).toBe(false);
+    expect(read(true)).toBe(true);
+    for (const bad of ['false', 0, null, []]) expect(read(bad)).toBe(true);
+  });
+
+  it('is written and read back', () => {
+    const storage = new MemoryStorage();
+    writeSave(storage, { ...defaultSave(), mouseAim: false });
+    expect(loadSave(storage).mouseAim).toBe(false);
   });
 });
 

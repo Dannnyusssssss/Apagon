@@ -1,5 +1,5 @@
-import { createCamera, followTarget } from '../core/camera';
-import { lerp, lerpAngle } from '../core/math';
+import { createCamera, followTarget, screenToWorld } from '../core/camera';
+import { lerp, lerpAngle, type Vec2 } from '../core/math';
 import { renderScale } from '../core/resolution';
 import { BALANCE } from '../data/balance';
 import { levelAt, type LevelDef, type LevelPalette } from '../data/levels';
@@ -141,6 +141,11 @@ export class Renderer {
     if (!ctx) throw new Error('2D context not available');
     this.ctx = ctx;
     this.resize();
+  }
+
+  /** Writes the world point under a position in CSS pixels, as last drawn, into `out`. */
+  pointToWorld(screenX: number, screenY: number, out: Vec2): Vec2 {
+    return screenToWorld(this.camera, screenX, screenY, this.cssWidth, this.cssHeight, out);
   }
 
   /** Colors and exit of the level being played. */
@@ -303,8 +308,9 @@ export class Renderer {
     const blinking = mood !== 'scared' && world.elapsedSeconds % BLINK_EVERY < BLINK_FOR;
     this.drawBody(blinking ? this.blinks[mood] : this.faces[mood], x, y, r);
     if (!blinking) {
-      const lookX = player.facingX * FACE.look * r;
-      const lookY = player.facingY * FACE.look * r;
+      // The eyes follow the beam when it is aimed apart from the walking direction.
+      const lookX = (world.pointerAiming ? Math.cos(aim) : player.facingX) * FACE.look * r;
+      const lookY = (world.pointerAiming ? Math.sin(aim) : player.facingY) * FACE.look * r;
       const pupil = FACE.pupil[mood] * r;
       ctx.fillStyle = COLORS.pupil;
       for (let side = -1; side <= 1; side += 2) {

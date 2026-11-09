@@ -10,6 +10,7 @@ export const TEXTS = {
       { keys: ['E'], alt: [], label: 'Interactuar' },
       { keys: ['Esc'], alt: ['P'], label: 'Pausa' },
       { keys: ['M'], alt: [], label: 'Sonido' },
+      { keys: ['Ratón'], alt: [], label: 'Apuntar la luz' },
     ],
     /** Word between main and alternative keys. */
     or: 'o',
@@ -52,6 +53,7 @@ export const TEXTS = {
     reduceFlicker: 'Reducir parpadeo',
     mute: 'Silenciar sonido (M)',
     classicLight: 'Linterna clásica (más fácil)',
+    mouseAim: 'Apuntar con el ratón',
   },
   defeat: {
     title: 'Te ha alcanzado',

@@ -162,6 +162,7 @@ export interface ScreenHandlers {
   onReduceFlicker(checked: boolean): void;
   onMute(checked: boolean): void;
   onClassicLight(checked: boolean): void;
+  onMouseAim(checked: boolean): void;
 }
 
 /** What the screen between two levels shows. */
@@ -192,6 +193,7 @@ export class Screens {
   private readonly reduceBoxes: HTMLInputElement[] = [];
   private readonly muteBoxes: HTMLInputElement[] = [];
   private readonly classicBoxes: HTMLInputElement[] = [];
+  private readonly mouseAimBoxes: HTMLInputElement[] = [];
   private readonly continueButton: HTMLButtonElement;
   private readonly newGameButton: HTMLButtonElement;
   private readonly pauseLevel: HTMLParagraphElement;
@@ -260,6 +262,9 @@ export class Screens {
     this.classicBoxes.push(
       screen.toggle(row, TEXTS.settings.classicLight, 'flashlight', handlers.onClassicLight),
     );
+    this.mouseAimBoxes.push(
+      screen.toggle(row, TEXTS.settings.mouseAim, 'aim', handlers.onMouseAim),
+    );
   }
 
   setReduceFlicker(checked: boolean): void {
@@ -272,6 +277,10 @@ export class Screens {
 
   setClassicLight(checked: boolean): void {
     for (const box of this.classicBoxes) box.checked = checked;
+  }
+
+  setMouseAim(checked: boolean): void {
+    for (const box of this.mouseAimBoxes) box.checked = checked;
   }
 
   /**

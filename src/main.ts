@@ -18,6 +18,7 @@ import {
 import { parseDebugParams } from './core/debugParams';
 import { FramePacer } from './core/framePacer';
 import { attachKeyboard, InputState } from './core/input';
+import { attachPointer, PointerAim } from './core/pointer';
 import { FixedStepClock, GameLoop } from './core/loop';
 import type { Vec2 } from './core/math';
 import { BALANCE } from './data/balance';
@@ -58,6 +59,7 @@ const prefersReducedMotion =
   window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 /** Stays null until the player picks it, so the system preference keeps applying. */
 let chosenReduceFlicker = save.reduceFlicker;
+let mouseAim = save.mouseAim;
 
 // Debug options are read once; without them nothing extra is created (see docs/DEBUG.md).
 const debugParams = parseDebugParams(window.location.search);
@@ -110,6 +112,7 @@ const enemyAudioConfig: EnemyAudioConfig = {
 const enemyAudioState = createEnemyAudioState();
 const enemyAudio = createEnemyAudioOutput();
 const input = new InputState();
+const pointer = new PointerAim();
 const renderer = new Renderer(gameCanvas);
 renderer.setLevel(levelAt(run.levelIndex));
 
@@ -148,7 +151,14 @@ const screens = new Screens(container, {
     // Applies at once, even from the pause menu: shape and difficulty.
     setLightMode(world, checked);
     screens.setClassicLight(checked);
+    updateCursor();
     redraw = true;
+    persist();
+  },
+  onMouseAim: (checked) => {
+    mouseAim = checked;
+    screens.setMouseAim(checked);
+    updateCursor();
     persist();
   },
 });
@@ -156,6 +166,8 @@ screens.setReduceFlicker(world.settings.reduceFlicker);
 applyReduceMotion(world.settings.reduceFlicker);
 screens.setMuted(world.settings.muted);
 screens.setClassicLight(world.settings.classicLight);
+screens.setMouseAim(mouseAim);
+updateCursor();
 screens.showStart(false, canContinue(save) ? save.unlockedLevel : null);
 
 /** Builds the world of the current level, keeping the player's settings. */
@@ -170,6 +182,11 @@ function levelLabel(index: number): string {
   return TEXTS.levelLabel(index + 1, TEXTS.levels[levelAt(index).id].name);
 }
 
+/** The crosshair only shows when the mouse moves the beam. */
+function updateCursor(): void {
+  gameCanvas.classList.toggle('game--aim', mouseAim && !world.settings.classicLight);
+}
+
 /** "Reduce flicker" also stops the menu animations. */
 function applyReduceMotion(on: boolean): void {
   document.documentElement.classList.toggle('reduce-motion', on);
@@ -180,6 +197,7 @@ function persist(): void {
     reduceFlicker: chosenReduceFlicker,
     muted: world.settings.muted,
     classicLight: world.settings.classicLight,
+    mouseAim,
     unlockedLevel: save.unlockedLevel,
     bestLevelTimes: save.bestLevelTimes,
     bestFullRunSeconds: save.bestFullRunSeconds,
@@ -317,6 +335,7 @@ function finishRun(): void {
 }
 
 attachKeyboard(gameCanvas, input);
+attachPointer(container, gameCanvas, pointer, () => state === 'playing');
 // Losing focus (Tab, clicking elsewhere, switching window or tab) pauses the run.
 gameCanvas.addEventListener('blur', () => pause(false));
 document.addEventListener('visibilitychange', () => {
@@ -328,6 +347,7 @@ window.addEventListener('resize', () => {
 });
 
 const axis: Vec2 = { x: 0, y: 0 };
+const aimPoint: Vec2 = { x: 0, y: 0 };
 const stepInput: StepInput = { axisX: 0, axisY: 0, toggleFlashlight: false, interact: false };
 
 const sim = BALANCE.simulation;
@@ -355,6 +375,8 @@ const loop = new GameLoop(
       stepInput.axisY = axis.y;
       stepInput.toggleFlashlight = input.consumeToggle();
       stepInput.interact = input.consumeInteract();
+      stepInput.aimAt =
+        mouseAim && pointer.active ? renderer.pointToWorld(pointer.x, pointer.y, aimPoint) : null;
       stepWorld(world, stepInput, stepSeconds);
       debugOverlay?.countStep();
       playStepSounds(stepSeconds);

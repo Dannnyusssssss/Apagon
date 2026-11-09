@@ -14,6 +14,8 @@ export interface SaveData {
   muted: boolean;
   /** Classic round light (easier) instead of the cone. Missing in older saves: cone. */
   classicLight: boolean;
+  /** Aim the cone with the mouse. Missing in older saves: on. */
+  mouseAim: boolean;
   /** Highest level that can be continued from (1 is the first). */
   unlockedLevel: number;
   /** Best time in seconds of each level, in play order; null if not won yet. */
@@ -33,6 +35,7 @@ export function defaultSave(): SaveData {
     reduceFlicker: null,
     muted: false,
     classicLight: false,
+    mouseAim: true,
     unlockedLevel: 1,
     bestLevelTimes: Array.from({ length: LEVEL_COUNT }, () => null),
     bestFullRunSeconds: null,
@@ -65,6 +68,10 @@ export function parseSave(raw: string | null): SaveData {
   if (isRecord(settings) && typeof settings['classicLight'] === 'boolean') {
     data.classicLight = settings['classicLight'];
   }
+  if (isRecord(settings) && typeof settings['mouseAim'] === 'boolean') {
+    data.mouseAim = settings['mouseAim'];
+  }
+
   const unlocked = parsed['unlockedLevel'];
   if (
     typeof unlocked === 'number' &&
@@ -98,6 +105,7 @@ export function serializeSave(data: SaveData): string {
   if (data.reduceFlicker !== null) settings['reduceFlicker'] = data.reduceFlicker;
   settings['muted'] = data.muted;
   settings['classicLight'] = data.classicLight;
+  settings['mouseAim'] = data.mouseAim;
   return JSON.stringify({
     version: SAVE_VERSION,
     settings,

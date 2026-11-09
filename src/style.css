@@ -26,6 +26,11 @@ body {
   outline: none;
 }
 
+/* Only with the cone and mouse aiming on: the menus cover the canvas, so it shows during play. */
+#game.game--aim {
+  cursor: crosshair;
+}
+
 #game:focus-visible {
   outline: 3px solid #ffd76a;
   outline-offset: -3px;

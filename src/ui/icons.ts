@@ -1,6 +1,7 @@
 /** Small decorative icons for the menus, drawn with Canvas 2D (no image files). */
 export type IconKind =
   | 'flashlight'
+  | 'aim'
   | 'key'
   | 'battery'
   | 'eyes'
@@ -62,6 +63,22 @@ const DRAW: Record<IconKind, (ctx: CanvasRenderingContext2D) => void> = {
       ctx.stroke();
     }
     ctx.globalAlpha = 1;
+  },
+  aim(ctx) {
+    ctx.beginPath();
+    ctx.arc(12, 12, 6, 0, Math.PI * 2);
+    ctx.stroke();
+    for (const [x1, y1, x2, y2] of [
+      [12, 2, 12, 8],
+      [12, 16, 12, 22],
+      [2, 12, 8, 12],
+      [16, 12, 22, 12],
+    ] as const) {
+      ctx.beginPath();
+      ctx.moveTo(x1, y1);
+      ctx.lineTo(x2, y2);
+      ctx.stroke();
+    }
   },
   key(ctx) {
     ctx.beginPath();
