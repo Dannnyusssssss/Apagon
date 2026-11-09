@@ -1,3 +1,5 @@
+import { LEVEL_COUNT } from '../data/levels';
+
 export interface DebugParams {
   /** Show the debug overlay. */
   debug: boolean;
@@ -5,6 +7,8 @@ export interface DebugParams {
   god: boolean;
   /** Fixed seed for gameplay random choices, or null for a time-based seed. */
   seed: number | null;
+  /** Level to play (1 is the first), without touching the saved progress; or null. */
+  level: number | null;
 }
 
 const MAX_SEED = 0xffffffff;
@@ -15,7 +19,7 @@ const MAX_SEED = 0xffffffff;
  * "1" or "true".
  */
 export function parseDebugParams(search: string): DebugParams {
-  const result: DebugParams = { debug: false, god: false, seed: null };
+  const result: DebugParams = { debug: false, god: false, seed: null, level: null };
   let params: URLSearchParams;
   try {
     params = new URLSearchParams(search);
@@ -28,6 +32,11 @@ export function parseDebugParams(search: string): DebugParams {
   if (seed !== null && /^\d{1,10}$/.test(seed)) {
     const value = Number(seed);
     if (value <= MAX_SEED) result.seed = value;
+  }
+  const level = params.get('level');
+  if (level !== null && /^[1-9]$/.test(level)) {
+    const value = Number(level);
+    if (value <= LEVEL_COUNT) result.level = value;
   }
   return result;
 }

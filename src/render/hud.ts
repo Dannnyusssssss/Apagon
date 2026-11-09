@@ -1,4 +1,5 @@
 import { BALANCE } from '../data/balance';
+import type { ExitKind } from '../data/levels';
 import { TEXTS } from '../data/texts';
 import { isBatteryLow } from '../game/battery';
 import { missingKeys } from '../game/items';
@@ -38,11 +39,18 @@ export class Hud {
   private batteryState = '';
   private batteryText = '';
   private keysCount = -1;
+  private keysNeeded = -1;
   private keysText = '';
+  private openExitText: string = TEXTS.hud.openDoor;
   private missingCount = -1;
   private missingText = '';
   private promptText = '';
   private promptWidth = 0;
+
+  /** The prompt names the exit of the current level. */
+  setExit(exit: ExitKind): void {
+    this.openExitText = exit === 'gate' ? TEXTS.hud.openGate : TEXTS.hud.openDoor;
+  }
 
   resize(dpr: number): void {
     this.unit = dpr;
@@ -253,8 +261,9 @@ export class Hud {
 
   private keysLabel(world: World): string {
     const { keys, keysRequired } = world.inventory;
-    if (keys !== this.keysCount) {
+    if (keys !== this.keysCount || keysRequired !== this.keysNeeded) {
       this.keysCount = keys;
+      this.keysNeeded = keysRequired;
       this.keysText = `${TEXTS.hud.keys}${String(keys)}/${String(keysRequired)}`;
     }
     return this.keysText;
@@ -267,7 +276,7 @@ export class Hud {
       case 'pickBattery':
         return TEXTS.hud.pickBattery;
       case 'openDoor':
-        return TEXTS.hud.openDoor;
+        return this.openExitText;
       case 'doorLocked':
         if (missing !== this.missingCount) {
           this.missingCount = missing;

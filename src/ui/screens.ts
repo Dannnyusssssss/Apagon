@@ -3,7 +3,7 @@ import { TEXTS } from '../data/texts';
 import { formatTime } from './format';
 import { createIcon, type IconKind } from './icons';
 
-type Variant = 'start' | 'pause' | 'victory' | 'defeat';
+type Variant = 'start' | 'pause' | 'level' | 'victory' | 'defeat';
 
 interface ControlLine {
   readonly keys: readonly string[];
@@ -138,6 +138,11 @@ class Screen {
     return button;
   }
 
+  /** Chooses which control gets focus when the screen opens. */
+  focusOn(control: HTMLElement): void {
+    this.firstControl = control;
+  }
+
   show(focus: boolean): void {
     this.root.hidden = false;
     if (focus) this.firstControl?.focus();
@@ -149,7 +154,9 @@ class Screen {
 }
 
 export interface ScreenHandlers {
-  onStart(): void;
+  onContinue(): void;
+  onNewGame(): void;
+  onNextLevel(): void;
   onResume(): void;
   onRetry(): void;
   onReduceFlicker(checked: boolean): void;
@@ -157,19 +164,46 @@ export interface ScreenHandlers {
   onClassicLight(checked: boolean): void;
 }
 
-/** Start, pause, victory and defeat screens. Only "Retry" on the end screens. */
+/** What the screen between two levels shows. */
+export interface LevelDoneView {
+  readonly seconds: number;
+  readonly bestSeconds: number | null;
+  readonly newBest: boolean;
+  readonly nextLabel: string;
+  readonly nextIntro: string;
+}
+
+/** What the final screen shows. The total is null when the run did not start from "New game". */
+export interface VictoryView {
+  readonly lastLevelSeconds: number;
+  readonly totalSeconds: number | null;
+  readonly bestTotalSeconds: number | null;
+  readonly newBest: boolean;
+}
+
+/** Start, pause, between-levels, victory and defeat screens. No way out of the frame. */
 export class Screens {
   private readonly start: Screen;
   private readonly pause: Screen;
+  private readonly levelDone: Screen;
   private readonly victory: Screen;
   private readonly defeat: Screen;
   private readonly all: readonly Screen[];
   private readonly reduceBoxes: HTMLInputElement[] = [];
   private readonly muteBoxes: HTMLInputElement[] = [];
   private readonly classicBoxes: HTMLInputElement[] = [];
-  private readonly victoryTime: HTMLParagraphElement;
-  private readonly victoryBest: HTMLParagraphElement;
+  private readonly continueButton: HTMLButtonElement;
+  private readonly newGameButton: HTMLButtonElement;
+  private readonly pauseLevel: HTMLParagraphElement;
+  private readonly levelDoneTime: HTMLParagraphElement;
+  private readonly levelDoneBest: HTMLParagraphElement;
+  private readonly levelDoneNewBest: HTMLParagraphElement;
+  private readonly levelDoneNext: HTMLParagraphElement;
+  private readonly levelDoneIntro: HTMLParagraphElement;
+  private readonly victoryTotal: HTMLParagraphElement;
+  private readonly victoryDetail: HTMLParagraphElement;
   private readonly victoryNewBest: HTMLParagraphElement;
+  private readonly defeatLevel: HTMLParagraphElement;
 
   constructor(container: HTMLElement, handlers: ScreenHandlers) {
     const s = TEXTS.start;
@@ -182,26 +216,39 @@ export class Screens {
     this.start.text(s.shiftHint, 'screen__text screen__text--small');
     this.addSettings(this.start, handlers);
     this.start.text(s.lightNotice, 'screen__text screen__text--small');
-    this.start.button(s.play, 'flashlight', handlers.onStart);
+    this.continueButton = this.start.button('', 'flashlight', handlers.onContinue);
+    this.newGameButton = this.start.button(s.newGame, 'retry', handlers.onNewGame);
     this.start.text(s.leave, 'screen__text screen__text--small');
 
     this.pause = new Screen(container, 'pause', TEXTS.pause.title, 'h2', 'pause');
+    this.pauseLevel = this.pause.text('', 'screen__text screen__text--small');
     this.pause.controls(s.controlsTitle, s.controls, s.or);
     this.addSettings(this.pause, handlers);
     this.pause.button(TEXTS.pause.resume, 'resume', handlers.onResume);
     this.pause.text(s.leave, 'screen__text screen__text--small');
 
+    const done = TEXTS.levelDone;
+    this.levelDone = new Screen(container, 'level', done.title, 'h2', 'door');
+    this.levelDoneTime = this.levelDone.text('', 'screen__text screen__text--lead');
+    this.levelDoneBest = this.levelDone.text('', 'screen__text screen__text--small');
+    this.levelDoneNewBest = this.levelDone.text(done.newBest, 'screen__note');
+    this.levelDone.divider('flashlight');
+    this.levelDoneNext = this.levelDone.text('', 'screen__text screen__text--lead');
+    this.levelDoneIntro = this.levelDone.text('');
+    this.levelDone.button(done.next, 'resume', handlers.onNextLevel);
+
     this.victory = new Screen(container, 'victory', TEXTS.victory.title, 'h2', 'door');
-    this.victoryTime = this.victory.text('', 'screen__text screen__text--lead');
-    this.victoryBest = this.victory.text('', 'screen__text screen__text--small');
+    this.victoryTotal = this.victory.text('', 'screen__text screen__text--lead');
+    this.victoryDetail = this.victory.text('', 'screen__text screen__text--small');
     this.victoryNewBest = this.victory.text(TEXTS.victory.newBest, 'screen__note');
-    this.victory.button(TEXTS.victory.retry, 'retry', handlers.onRetry);
+    this.victory.button(TEXTS.victory.again, 'retry', handlers.onNewGame);
 
     this.defeat = new Screen(container, 'defeat', TEXTS.defeat.title, 'h2', 'eyes');
+    this.defeatLevel = this.defeat.text('', 'screen__text screen__text--small');
     this.defeat.text(TEXTS.defeat.hint, 'screen__text screen__text--lead');
     this.defeat.button(TEXTS.defeat.retry, 'retry', handlers.onRetry);
 
-    this.all = [this.start, this.pause, this.victory, this.defeat];
+    this.all = [this.start, this.pause, this.levelDone, this.victory, this.defeat];
   }
 
   private addSettings(screen: Screen, handlers: ScreenHandlers): void {
@@ -227,24 +274,54 @@ export class Screens {
     for (const box of this.classicBoxes) box.checked = checked;
   }
 
-  /** Focus is not moved on first load, so the page does not steal focus inside a frame. */
-  showStart(focus: boolean): void {
+  /**
+   * `continueLevel` is the level "Continue" would start, or null when there is nothing
+   * to continue. Focus is not moved on first load, so the page does not steal focus
+   * inside a frame.
+   */
+  showStart(focus: boolean, continueLevel: number | null): void {
+    const canContinue = continueLevel !== null;
+    this.continueButton.hidden = !canContinue;
+    if (canContinue) {
+      const label = this.continueButton.lastElementChild;
+      if (label) label.textContent = TEXTS.start.continueGame(continueLevel);
+    }
+    this.start.focusOn(canContinue ? this.continueButton : this.newGameButton);
     this.showOnly(this.start, focus);
   }
 
-  showPause(focus: boolean): void {
+  showPause(focus: boolean, levelLabel: string): void {
+    this.pauseLevel.textContent = levelLabel;
     this.showOnly(this.pause, focus);
   }
 
-  showVictory(timeSeconds: number, bestSeconds: number | null, newBest: boolean): void {
-    this.victoryTime.textContent = TEXTS.victory.time + formatTime(timeSeconds);
-    this.victoryBest.textContent =
-      bestSeconds === null ? '' : TEXTS.victory.best + formatTime(bestSeconds);
-    this.victoryNewBest.hidden = !newBest;
+  showLevelDone(view: LevelDoneView): void {
+    const done = TEXTS.levelDone;
+    this.levelDoneTime.textContent = done.time + formatTime(view.seconds);
+    this.levelDoneBest.textContent =
+      view.bestSeconds === null ? '' : done.best + formatTime(view.bestSeconds);
+    this.levelDoneNewBest.hidden = !view.newBest;
+    this.levelDoneNext.textContent = view.nextLabel;
+    this.levelDoneIntro.textContent = view.nextIntro;
+    this.showOnly(this.levelDone, true);
+  }
+
+  showVictory(view: VictoryView): void {
+    const v = TEXTS.victory;
+    if (view.totalSeconds === null) {
+      this.victoryTotal.textContent = v.lastLevel + formatTime(view.lastLevelSeconds);
+      this.victoryDetail.textContent = v.fullRunHint;
+    } else {
+      this.victoryTotal.textContent = v.total + formatTime(view.totalSeconds);
+      this.victoryDetail.textContent =
+        view.bestTotalSeconds === null ? '' : v.bestTotal + formatTime(view.bestTotalSeconds);
+    }
+    this.victoryNewBest.hidden = !view.newBest;
     this.showOnly(this.victory, true);
   }
 
-  showDefeat(): void {
+  showDefeat(levelLabel: string): void {
+    this.defeatLevel.textContent = levelLabel;
     this.showOnly(this.defeat, true);
   }
 

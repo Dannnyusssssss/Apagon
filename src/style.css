@@ -61,7 +61,8 @@ body {
     radial-gradient(ellipse at center, rgba(20, 0, 4, 0.7) 0%, rgba(8, 0, 2, 0.95) 75%);
 }
 
-.screen--victory {
+.screen--victory,
+.screen--level {
   background:
     radial-gradient(ellipse at 50% 25%, rgba(255, 210, 140, 0.22), transparent 60%),
     radial-gradient(ellipse at center, rgba(10, 8, 4, 0.6) 0%, rgba(0, 0, 0, 0.92) 75%);
@@ -387,6 +388,10 @@ h2.screen__title {
   text-transform: uppercase;
   cursor: pointer;
   transition: box-shadow 0.2s;
+}
+
+.screen__button[hidden] {
+  display: none;
 }
 
 .screen__button:hover,

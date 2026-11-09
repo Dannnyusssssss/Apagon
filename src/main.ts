@@ -20,11 +20,28 @@ import { attachKeyboard, InputState } from './core/input';
 import { FixedStepClock, GameLoop } from './core/loop';
 import type { Vec2 } from './core/math';
 import { BALANCE } from './data/balance';
-import { HOUSE } from './data/rooms';
+import { levelAt, LEVEL_COUNT } from './data/levels';
+import { TEXTS } from './data/texts';
 import { clearEvents } from './game/events';
-import { createWorld, resetWorld, setLightMode, stepWorld, type StepInput } from './game/world';
+import {
+  createLevelWorld,
+  resetWorld,
+  setLightMode,
+  stepWorld,
+  type StepInput,
+  type World,
+} from './game/world';
 import { Renderer } from './render/renderer';
-import { getBrowserStorage, isNewBest, loadSave, writeSave } from './save/storage';
+import {
+  addAttemptTime,
+  canContinue,
+  continueRun,
+  debugRun,
+  newGameRun,
+  recordLevelWin,
+  type RunProgress,
+} from './save/progress';
+import { getBrowserStorage, loadSave, writeSave } from './save/storage';
 import { DebugOverlay } from './ui/debugOverlay';
 import { Screens } from './ui/screens';
 
@@ -40,21 +57,44 @@ const prefersReducedMotion =
   window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 /** Stays null until the player picks it, so the system preference keeps applying. */
 let chosenReduceFlicker = save.reduceFlicker;
-let bestTime = save.bestTimeSeconds;
 
 // Debug options are read once; without them nothing extra is created (see docs/DEBUG.md).
 const debugParams = parseDebugParams(window.location.search);
 const debugOverlay = debugParams.debug ? new DebugOverlay(container) : null;
 
-// The seed only picks among the fixed enemy starts of the map.
+// The seed only picks among the fixed enemy starts and item spots of each map.
 const seed = debugParams.seed ?? Date.now() >>> 0;
-const world = createWorld(HOUSE, {
-  seed,
+/** Debug runs never touch the saved progress. */
+const recording = debugParams.level === null && !debugParams.god;
+/** Keeps layouts from repeating when a level is loaded again, unless the seed was fixed. */
+let worldsLoaded = 0;
+
+function newRun(): RunProgress {
+  return debugParams.level === null ? newGameRun(recording) : debugRun(debugParams.level);
+}
+
+let run = newRun();
+let world = buildWorld(run.levelIndex, {
   reduceFlicker: chosenReduceFlicker ?? prefersReducedMotion,
   muted: save.muted,
   classicLight: save.classicLight,
-  godMode: debugParams.god,
 });
+
+interface CarriedSettings {
+  readonly reduceFlicker: boolean;
+  readonly muted: boolean;
+  readonly classicLight: boolean;
+}
+
+function buildWorld(levelIndex: number, settings: CarriedSettings): World {
+  const visit = debugParams.seed === null ? worldsLoaded++ : 0;
+  return createLevelWorld(levelAt(levelIndex), {
+    ...settings,
+    seed: (seed + Math.imul(levelIndex + 1, 0x9e3779b1) + Math.imul(visit, 0x85ebca6b)) >>> 0,
+    godMode: debugParams.god,
+  });
+}
+
 const sfx = new Sfx();
 sfx.setMuted(world.settings.muted);
 const cueState = createCueState();
@@ -70,12 +110,27 @@ const enemyAudioState = createEnemyAudioState();
 const enemyAudio = createEnemyAudioOutput();
 const input = new InputState();
 const renderer = new Renderer(gameCanvas);
+renderer.setLevel(levelAt(run.levelIndex));
 
-type AppState = 'start' | 'playing' | 'paused' | 'won' | 'lost';
+type AppState = 'start' | 'playing' | 'paused' | 'levelDone' | 'won' | 'lost';
 let state: AppState = 'start';
 
 const screens = new Screens(container, {
-  onStart: startRun,
+  onContinue: () => {
+    run = debugParams.level === null ? continueRun(save.unlockedLevel, recording) : newRun();
+    loadLevel();
+    startRun();
+  },
+  onNewGame: () => {
+    run = newRun();
+    loadLevel();
+    startRun();
+  },
+  onNextLevel: () => {
+    run.levelIndex++;
+    loadLevel();
+    startRun();
+  },
   onResume: resume,
   onRetry: startRun,
   onReduceFlicker: (checked) => {
@@ -97,7 +152,18 @@ screens.setReduceFlicker(world.settings.reduceFlicker);
 applyReduceMotion(world.settings.reduceFlicker);
 screens.setMuted(world.settings.muted);
 screens.setClassicLight(world.settings.classicLight);
-screens.showStart(false);
+screens.showStart(false, canContinue(save) ? save.unlockedLevel : null);
+
+/** Builds the world of the current level, keeping the player's settings. */
+function loadLevel(): void {
+  const { reduceFlicker, muted, classicLight } = world.settings;
+  world = buildWorld(run.levelIndex, { reduceFlicker, muted, classicLight });
+  renderer.setLevel(levelAt(run.levelIndex));
+}
+
+function levelLabel(index: number): string {
+  return TEXTS.levelLabel(index + 1, TEXTS.levels[levelAt(index).id].name);
+}
 
 /** "Reduce flicker" also stops the menu animations. */
 function applyReduceMotion(on: boolean): void {
@@ -109,7 +175,9 @@ function persist(): void {
     reduceFlicker: chosenReduceFlicker,
     muted: world.settings.muted,
     classicLight: world.settings.classicLight,
-    bestTimeSeconds: bestTime,
+    unlockedLevel: save.unlockedLevel,
+    bestLevelTimes: save.bestLevelTimes,
+    bestFullRunSeconds: save.bestFullRunSeconds,
   });
 }
 
@@ -152,7 +220,7 @@ function playStepSounds(stepSeconds: number): void {
       enemyAudioConfig,
       world.room,
       world.player,
-      world.enemy,
+      world.nearestEnemy,
       stepSeconds,
       enemyAudio,
     );
@@ -194,7 +262,7 @@ function pause(focusMenu: boolean): void {
   state = 'paused';
   input.clear();
   sfx.suspend();
-  screens.showPause(focusMenu);
+  screens.showPause(focusMenu, levelLabel(run.levelIndex));
 }
 
 function resume(): void {
@@ -210,18 +278,33 @@ function finishRun(): void {
   sfx.setMusicOn(false);
   sfx.setEnemyAudible(false);
   sfx.setBatteryLevel(0);
+  const seconds = world.elapsedSeconds;
+  addAttemptTime(run, seconds);
   if (world.status === 'lost') {
     state = 'lost';
-    screens.showDefeat();
+    screens.showDefeat(levelLabel(run.levelIndex));
   } else if (world.status === 'won') {
-    state = 'won';
-    const time = world.elapsedSeconds;
-    const newBest = isNewBest(time, bestTime);
-    if (newBest) {
-      bestTime = time;
-      persist();
+    const result = recordLevelWin(run, save, seconds, LEVEL_COUNT);
+    if (result.changed) persist();
+    if (result.finished) {
+      state = 'won';
+      screens.showVictory({
+        lastLevelSeconds: seconds,
+        totalSeconds: run.fullRun ? run.totalSeconds : null,
+        bestTotalSeconds: result.bestFullRunSeconds,
+        newBest: result.newFullRunBest,
+      });
+    } else {
+      state = 'levelDone';
+      const next = run.levelIndex + 1;
+      screens.showLevelDone({
+        seconds,
+        bestSeconds: result.bestLevelSeconds,
+        newBest: result.newLevelBest,
+        nextLabel: levelLabel(next),
+        nextIntro: TEXTS.levels[levelAt(next).id].intro,
+      });
     }
-    screens.showVictory(time, bestTime, newBest);
   }
 }
 
@@ -260,7 +343,7 @@ const loop = new GameLoop(
     },
     render: (alpha) => {
       renderer.render(world, alpha);
-      debugOverlay?.frame(performance.now(), world, state);
+      debugOverlay?.frame(performance.now(), world, state, levelAt(run.levelIndex).id);
     },
   },
 );
