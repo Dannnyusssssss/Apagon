@@ -93,6 +93,8 @@ export interface World {
   readonly enemyDirection: Vec2;
   /** Face of the player character. */
   mood: Mood;
+  /** True while the beam follows the mouse and not the walking direction. */
+  pointerAiming: boolean;
 }
 
 /** Input already sampled for one logic step. */
@@ -101,6 +103,8 @@ export interface StepInput {
   axisY: number;
   toggleFlashlight: boolean;
   interact: boolean;
+  /** World point the mouse is on, when aiming with it. Ignored with the classic light. */
+  aimAt?: Vec2 | null;
 }
 
 const DEFAULT_OPTIONS: WorldOptions = { seed: 1, reduceFlicker: false };
@@ -142,6 +146,7 @@ export function createWorld(roomDef: RoomDef, options: WorldOptions = DEFAULT_OP
     enemyNear: 0,
     enemyDirection: { x: 0, y: 1 },
     mood: 'calm',
+    pointerAiming: false,
   };
   resetWorld(world);
   return world;
@@ -190,6 +195,7 @@ export function resetWorld(world: World): void {
   world.nearestEnemy = nearestEnemy(player, world.enemies, world.nearestEnemy);
   snapEnemyDirection(player, world.nearestEnemy, world.enemyDirection);
   world.mood = 'calm';
+  world.pointerAiming = false;
   clearEvents(world.events);
 }
 
@@ -244,7 +250,16 @@ export function stepWorld(world: World, input: StepInput, stepSeconds: number): 
   if (hadCharge && flashlight.battery === 0) events.batteryEmptied++;
   movementSystem(room, player, input.axisX, input.axisY, stepSeconds);
   events.moving = player.x !== startX || player.y !== startY;
-  aimSystem(flashlight, player, BALANCE.flashlight.turnRate, stepSeconds);
+  const aimAt = world.settings.classicLight ? null : (input.aimAt ?? null);
+  world.pointerAiming = aimAt !== null;
+  aimSystem(
+    flashlight,
+    player,
+    aimAt ? BALANCE.flashlight.pointerTurnRate : BALANCE.flashlight.turnRate,
+    stepSeconds,
+    aimAt,
+    BALANCE.flashlight.pointerDeadZone,
+  );
   const result = interactSystem(
     room,
     player,

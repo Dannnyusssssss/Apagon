@@ -44,6 +44,10 @@ export const BALANCE = {
     coneSoftOuter: (45 * Math.PI) / 180,
     /** How fast the beam turns toward where the player walks, in radians per second (540 degrees). */
     turnRate: 3 * Math.PI,
+    /** The same when aiming with the mouse, twice as fast (1080 degrees): it should feel direct. */
+    pointerTurnRate: 6 * Math.PI,
+    /** With the mouse this close to the player, the beam holds still instead of spinning. */
+    pointerDeadZone: 16,
     /** Cone mode: small, dim halo so the player sees itself and the tiles around. It does not stop the enemy. */
     haloRadius: 72,
     haloStrength: 0.4,

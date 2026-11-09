@@ -1,4 +1,4 @@
-import { clamp } from './math';
+import { clamp, type Vec2 } from './math';
 
 /** Camera center in world units and world-to-CSS-pixel scale. */
 export interface Camera {
@@ -26,6 +26,20 @@ export function followTarget(
 ): void {
   camera.x = clampAxis(targetX, worldWidth, viewWidth / camera.scale);
   camera.y = clampAxis(targetY, worldHeight, viewHeight / camera.scale);
+}
+
+/** Writes the world point under a position in CSS pixels into `out`. */
+export function screenToWorld(
+  camera: Camera,
+  screenX: number,
+  screenY: number,
+  viewWidth: number,
+  viewHeight: number,
+  out: Vec2,
+): Vec2 {
+  out.x = camera.x + (screenX - viewWidth / 2) / camera.scale;
+  out.y = camera.y + (screenY - viewHeight / 2) / camera.scale;
+  return out;
 }
 
 function clampAxis(target: number, worldSize: number, viewSize: number): number {
