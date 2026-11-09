@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { LEVEL_COUNT } from '../src/data/levels';
 import {
   defaultSave,
   isNewBest,
@@ -7,6 +8,7 @@ import {
   SAVE_KEY,
   serializeSave,
   writeSave,
+  type SaveData,
   type StorageLike,
 } from '../src/save/storage';
 
@@ -29,6 +31,16 @@ const throwing: StorageLike = {
   },
 };
 
+/** The defaults, with `changes` on top. */
+function save(changes: Partial<SaveData>): SaveData {
+  return { ...defaultSave(), ...changes };
+}
+
+/** Best times with only the first level won. */
+function firstLevelBest(seconds: number): (number | null)[] {
+  return [seconds, ...Array.from({ length: LEVEL_COUNT - 1 }, () => null)];
+}
+
 describe('save key', () => {
   it('uses the game prefix', () => {
     expect(SAVE_KEY).toBe('apagon:v1');
@@ -40,13 +52,17 @@ describe('parseSave', () => {
     const raw = JSON.stringify({
       version: 1,
       settings: { reduceFlicker: true },
-      bestTimeSeconds: 42.5,
+      unlockedLevel: 2,
+      bestLevelTimes: [42.5, 80, null],
+      bestFullRunSeconds: 300,
     });
     expect(parseSave(raw)).toEqual({
       reduceFlicker: true,
       muted: false,
       classicLight: false,
-      bestTimeSeconds: 42.5,
+      unlockedLevel: 2,
+      bestLevelTimes: [42.5, 80, null],
+      bestFullRunSeconds: 300,
     });
   });
 
@@ -59,27 +75,91 @@ describe('parseSave', () => {
   it('keeps valid fields and drops invalid ones, field by field', () => {
     expect(
       parseSave(
-        JSON.stringify({ version: 1, settings: { reduceFlicker: 'yes' }, bestTimeSeconds: 30 }),
+        JSON.stringify({ version: 1, settings: { reduceFlicker: 'yes' }, bestFullRunSeconds: 30 }),
       ),
-    ).toEqual({ reduceFlicker: null, muted: false, classicLight: false, bestTimeSeconds: 30 });
+    ).toEqual(save({ bestFullRunSeconds: 30 }));
     expect(
       parseSave(
-        JSON.stringify({ version: 1, settings: { reduceFlicker: false }, bestTimeSeconds: -5 }),
+        JSON.stringify({ version: 1, settings: { reduceFlicker: false }, bestFullRunSeconds: -5 }),
       ),
-    ).toEqual({ reduceFlicker: false, muted: false, classicLight: false, bestTimeSeconds: null });
-    expect(parseSave(JSON.stringify({ version: 1, settings: [], bestTimeSeconds: '30' }))).toEqual(
-      defaultSave(),
-    );
-    expect(parseSave('{"version":1,"bestTimeSeconds":1e999}')).toEqual(defaultSave());
-    expect(parseSave(JSON.stringify({ version: 1, bestTimeSeconds: 10 ** 9 }))).toEqual(
+    ).toEqual(save({ reduceFlicker: false }));
+    expect(
+      parseSave(JSON.stringify({ version: 1, settings: [], bestFullRunSeconds: '30' })),
+    ).toEqual(defaultSave());
+    expect(parseSave('{"version":1,"bestFullRunSeconds":1e999}')).toEqual(defaultSave());
+    expect(parseSave(JSON.stringify({ version: 1, bestFullRunSeconds: 10 ** 9 }))).toEqual(
       defaultSave(),
     );
   });
 
   it('round-trips through serializeSave', () => {
-    const data = { reduceFlicker: false, muted: true, classicLight: true, bestTimeSeconds: 12.3 };
+    const data = save({
+      reduceFlicker: false,
+      muted: true,
+      classicLight: true,
+      unlockedLevel: 3,
+      bestLevelTimes: [12.3, null, 40],
+      bestFullRunSeconds: 200,
+    });
     expect(parseSave(serializeSave(data))).toEqual(data);
     expect(parseSave(serializeSave(defaultSave()))).toEqual(defaultSave());
+  });
+});
+
+describe('level progress', () => {
+  const parseWith = (fields: Record<string, unknown>): SaveData =>
+    parseSave(JSON.stringify({ version: 1, ...fields }));
+
+  it('starts at the first level without progress', () => {
+    expect(defaultSave().unlockedLevel).toBe(1);
+    expect(defaultSave().bestLevelTimes).toHaveLength(LEVEL_COUNT);
+    expect(defaultSave().bestLevelTimes.every((t) => t === null)).toBe(true);
+  });
+
+  it('accepts only an unlocked level of the game', () => {
+    expect(parseWith({ unlockedLevel: LEVEL_COUNT }).unlockedLevel).toBe(LEVEL_COUNT);
+    for (const bad of [0, -1, LEVEL_COUNT + 1, 1.5, '2', null, true, [2], Infinity]) {
+      expect(parseWith({ unlockedLevel: bad }).unlockedLevel).toBe(1);
+    }
+  });
+
+  it('reads the times one by one and ignores whatever does not fit', () => {
+    const times = parseWith({ bestLevelTimes: [10, 'x', -3, 99, 77] }).bestLevelTimes;
+    expect(times).toEqual([10, null, null]);
+    expect(parseWith({ bestLevelTimes: 'nope' }).bestLevelTimes).toEqual(
+      defaultSave().bestLevelTimes,
+    );
+    expect(parseWith({ bestLevelTimes: { 0: 10 } }).bestLevelTimes).toEqual(
+      defaultSave().bestLevelTimes,
+    );
+    expect(parseWith({ bestLevelTimes: [10 ** 9] }).bestLevelTimes).toEqual(
+      defaultSave().bestLevelTimes,
+    );
+  });
+
+  it('moves the single best time of older saves to the first level', () => {
+    const old = parseSave(
+      JSON.stringify({ version: 1, settings: { muted: true }, bestTimeSeconds: 55 }),
+    );
+    expect(old.bestLevelTimes).toEqual(firstLevelBest(55));
+    expect(old.muted).toBe(true);
+    // An older save has no progress, so it starts at the first level.
+    expect(old.unlockedLevel).toBe(1);
+    expect(old.bestFullRunSeconds).toBeNull();
+  });
+
+  it('ignores a corrupt old best time, and prefers the new times over it', () => {
+    expect(parseWith({ bestTimeSeconds: 'fast' }).bestLevelTimes).toEqual(
+      defaultSave().bestLevelTimes,
+    );
+    expect(parseWith({ bestTimeSeconds: 55, bestLevelTimes: [40] }).bestLevelTimes[0]).toBe(40);
+  });
+
+  it('stops writing the old field', () => {
+    const written = JSON.parse(serializeSave(save({ bestLevelTimes: firstLevelBest(55) }))) as {
+      bestTimeSeconds?: unknown;
+    };
+    expect(written.bestTimeSeconds).toBeUndefined();
   });
 });
 
@@ -93,28 +173,22 @@ describe('muted setting', () => {
       parseSave(
         JSON.stringify({ version: 1, settings: { reduceFlicker: true }, bestTimeSeconds: 20 }),
       ),
-    ).toEqual({ reduceFlicker: true, muted: false, classicLight: false, bestTimeSeconds: 20 });
+    ).toEqual(save({ reduceFlicker: true, bestLevelTimes: firstLevelBest(20) }));
   });
 });
 
 describe('loadSave and writeSave', () => {
   it('writes only the game key and reads it back', () => {
     const storage = new MemoryStorage();
-    expect(
-      writeSave(storage, {
-        reduceFlicker: true,
-        muted: true,
-        classicLight: false,
-        bestTimeSeconds: 99,
-      }),
-    ).toBe(true);
-    expect([...storage.data.keys()]).toEqual(['apagon:v1']);
-    expect(loadSave(storage)).toEqual({
+    const data = save({
       reduceFlicker: true,
       muted: true,
-      classicLight: false,
-      bestTimeSeconds: 99,
+      unlockedLevel: 2,
+      bestLevelTimes: firstLevelBest(99),
     });
+    expect(writeSave(storage, data)).toBe(true);
+    expect([...storage.data.keys()]).toEqual(['apagon:v1']);
+    expect(loadSave(storage)).toEqual(data);
   });
 
   it('survives corrupt stored data', () => {
@@ -152,7 +226,7 @@ describe('classic light setting', () => {
   it('reads it field by field', () => {
     const read = (value: unknown): boolean =>
       parseSave(
-        JSON.stringify({ version: 1, settings: { classicLight: value }, bestTimeSeconds: 5 }),
+        JSON.stringify({ version: 1, settings: { classicLight: value }, bestFullRunSeconds: 5 }),
       ).classicLight;
     expect(read(true)).toBe(true);
     expect(read(false)).toBe(false);
@@ -161,8 +235,9 @@ describe('classic light setting', () => {
     expect(read(null)).toBe(false);
     // A bad value does not spoil the other fields.
     expect(
-      parseSave(JSON.stringify({ version: 1, settings: { classicLight: 'x' }, bestTimeSeconds: 5 }))
-        .bestTimeSeconds,
+      parseSave(
+        JSON.stringify({ version: 1, settings: { classicLight: 'x' }, bestFullRunSeconds: 5 }),
+      ).bestFullRunSeconds,
     ).toBe(5);
   });
 

@@ -1,3 +1,4 @@
+import { LEVEL_COUNT } from '../data/levels';
 import { STORAGE_PREFIX } from '../data/meta';
 
 /** The only key the game writes. The portal clears data by this prefix. */
@@ -13,8 +14,12 @@ export interface SaveData {
   muted: boolean;
   /** Classic round light (easier) instead of the cone. Missing in older saves: cone. */
   classicLight: boolean;
-  /** Best winning time in seconds, or null if the game was never won. */
-  bestTimeSeconds: number | null;
+  /** Highest level that can be continued from (1 is the first). */
+  unlockedLevel: number;
+  /** Best time in seconds of each level, in play order; null if not won yet. */
+  bestLevelTimes: (number | null)[];
+  /** Best time of the whole game played from "New game", or null. */
+  bestFullRunSeconds: number | null;
 }
 
 /** The subset of `Storage` the game uses, so tests can pass a fake. */
@@ -24,7 +29,14 @@ export interface StorageLike {
 }
 
 export function defaultSave(): SaveData {
-  return { reduceFlicker: null, muted: false, classicLight: false, bestTimeSeconds: null };
+  return {
+    reduceFlicker: null,
+    muted: false,
+    classicLight: false,
+    unlockedLevel: 1,
+    bestLevelTimes: Array.from({ length: LEVEL_COUNT }, () => null),
+    bestFullRunSeconds: null,
+  };
 }
 
 /**
@@ -53,8 +65,31 @@ export function parseSave(raw: string | null): SaveData {
   if (isRecord(settings) && typeof settings['classicLight'] === 'boolean') {
     data.classicLight = settings['classicLight'];
   }
-  const best = parsed['bestTimeSeconds'];
-  if (isValidTime(best)) data.bestTimeSeconds = best;
+  const unlocked = parsed['unlockedLevel'];
+  if (
+    typeof unlocked === 'number' &&
+    Number.isInteger(unlocked) &&
+    unlocked >= 1 &&
+    unlocked <= LEVEL_COUNT
+  ) {
+    data.unlockedLevel = unlocked;
+  }
+
+  const times = parsed['bestLevelTimes'];
+  if (Array.isArray(times)) {
+    for (let i = 0; i < LEVEL_COUNT; i++) {
+      const time: unknown = times[i];
+      if (isValidTime(time)) data.bestLevelTimes[i] = time;
+    }
+  }
+  // Saves from before the levels had a single best time: the first level is that map.
+  const legacyBest = parsed['bestTimeSeconds'];
+  if (data.bestLevelTimes[0] === null && isValidTime(legacyBest)) {
+    data.bestLevelTimes[0] = legacyBest;
+  }
+
+  const fullRun = parsed['bestFullRunSeconds'];
+  if (isValidTime(fullRun)) data.bestFullRunSeconds = fullRun;
   return data;
 }
 
@@ -66,7 +101,9 @@ export function serializeSave(data: SaveData): string {
   return JSON.stringify({
     version: SAVE_VERSION,
     settings,
-    bestTimeSeconds: isValidTime(data.bestTimeSeconds) ? data.bestTimeSeconds : null,
+    unlockedLevel: data.unlockedLevel,
+    bestLevelTimes: data.bestLevelTimes.map((time) => (isValidTime(time) ? time : null)),
+    bestFullRunSeconds: isValidTime(data.bestFullRunSeconds) ? data.bestFullRunSeconds : null,
   });
 }
 
