@@ -6,7 +6,7 @@ Cualquier valor inválido se ignora. Un indicador se activa si aparece sin valor
 
 | Parámetro | Efecto |
 |---|---|
-| `?debug` | Muestra un panel arriba a la derecha con FPS, pasos lógicos por segundo, nivel y número de enemigos, estado de la partida, área y casilla del jugador, batería, modo de linterna (cono o clásica), ángulo del haz, velocidad y estado del enemigo más cercano, cercanía, llaves y ajustes. Se actualiza 4 veces por segundo. |
+| `?debug` | Muestra un panel arriba a la derecha con FPS, pasos lógicos por segundo, peor frame de los últimos segundos (`worst`), frames de más de 50 ms desde que se cargó la página (`long frames`), tamaño del lienzo, cada cuántos refrescos se dibuja (`draw every`), nivel y número de enemigos, estado de la partida, área y casilla del jugador, batería, modo de linterna (cono o clásica), ángulo del haz, velocidad y estado del enemigo más cercano, cercanía, llaves y ajustes. Se actualiza 4 veces por segundo. |
 | `?god` | Los enemigos no pueden alcanzar al jugador. Todo lo demás funciona igual, pero la partida no guarda progreso ni récords. |
 | `?seed=N` | Fija la semilla (entero de 0 a 4294967295). Decide las llaves, las pilas y en qué puntos `E` empiezan los enemigos, así una partida se puede repetir. |
 | `?level=N` | Empieza en el nivel `N` (de 1 a 3) al pulsar "Nueva partida". La partida no guarda progreso ni récords, y no cuenta como partida completa. |
