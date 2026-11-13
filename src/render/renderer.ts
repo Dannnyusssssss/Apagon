@@ -252,14 +252,18 @@ export class Renderer {
     const { beam, halo } = this;
     const cfg = BALANCE.flashlight;
     const { penetration } = this;
-    const cone = flashlight.on && !world.settings.classicLight;
+    // While the light fades in or out, radius and strength blend between the small halo
+    // of the "off" look and the full beam, so a switch is never a sudden jump.
+    const amount = flashlight.onAmount;
+    const cone = amount > 0 && !world.settings.classicLight;
     beam.x = px;
     beam.y = py;
     beam.angle = aim;
-    if (flashlight.on) {
-      beam.radius = currentLightRadius(flashlight);
-      beam.strength = flashlight.strength;
-      beam.glowAlpha = cfg.warmGlowAlpha * flashlight.strength;
+    if (amount > 0) {
+      const onRadius = currentLightRadius(flashlight);
+      beam.radius = cfg.offHaloRadius + (onRadius - cfg.offHaloRadius) * amount;
+      beam.strength = cfg.offHaloStrength + (flashlight.strength - cfg.offHaloStrength) * amount;
+      beam.glowAlpha = cfg.warmGlowAlpha * flashlight.strength * amount;
     } else {
       beam.radius = cfg.offHaloRadius;
       beam.strength = cfg.offHaloStrength;
@@ -276,6 +280,9 @@ export class Renderer {
     castCone(room, px, py, beam.radius, aim, cfg.coneSoftOuter, penetration, beam.polygon);
     halo.x = px;
     halo.y = py;
+    // The halo grows from the "off" halo too, so the fade starts from what was on screen.
+    halo.radius = cfg.offHaloRadius + (cfg.haloRadius - cfg.offHaloRadius) * amount;
+    halo.strength = cfg.offHaloStrength + (cfg.haloStrength - cfg.offHaloStrength) * amount;
     castVisibility(room, px, py, halo.radius, penetration, halo.polygon);
     return 2;
   }

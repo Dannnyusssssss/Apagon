@@ -32,6 +32,16 @@ export const BALANCE = {
     /** Faint halo around the player while the flashlight is off. */
     offHaloRadius: 44,
     offHaloStrength: 0.35,
+    /**
+     * Switching the light fades its picture over this many seconds instead of jumping,
+     * so a switch is never an instant full-screen change of light (photosensitivity).
+     */
+    toggleFadeSeconds: 0.15,
+    /**
+     * Minimum seconds between two switches by the player: at most 1 / 0.3 ≈ 3.3 switches,
+     * so under 2 on-and-off flashes per second (the limit is 3).
+     */
+    minToggleInterval: 0.3,
     /** Opacity of the warm glow added over the lit area. */
     warmGlowAlpha: 0.12,
     /**

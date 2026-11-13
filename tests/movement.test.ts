@@ -85,6 +85,11 @@ describe('flashlight system', () => {
     expect(world.flashlight.on).toBe(!BALANCE.flashlight.startsOn);
     stepWorld(world, input(0, 0, false), STEP);
     expect(world.flashlight.on).toBe(!BALANCE.flashlight.startsOn);
+    // A press within the minimum interval is ignored (photosensitivity).
+    stepWorld(world, input(0, 0, true), STEP);
+    expect(world.flashlight.on).toBe(!BALANCE.flashlight.startsOn);
+    const wait = Math.ceil(BALANCE.flashlight.minToggleInterval / STEP);
+    for (let i = 0; i < wait; i++) stepWorld(world, input(0, 0, false), STEP);
     stepWorld(world, input(0, 0, true), STEP);
     expect(world.flashlight.on).toBe(BALANCE.flashlight.startsOn);
   });

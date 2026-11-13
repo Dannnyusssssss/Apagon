@@ -14,6 +14,13 @@ export interface Flashlight {
   aim: number;
   /** Aim at the previous logic step, for render interpolation. */
   prevAim: number;
+  /**
+   * How far the light has faded in, 0 (off look) to 1 (on look). Only the picture fades:
+   * the game logic uses `on`, which changes at once.
+   */
+  onAmount: number;
+  /** Seconds before the player can switch the light again. */
+  toggleCooldown: number;
 }
 
 export function createFlashlight(startsOn: boolean, aim = 0): Flashlight {
@@ -26,6 +33,8 @@ export function createFlashlight(startsOn: boolean, aim = 0): Flashlight {
     flickerHold: 0,
     aim,
     prevAim: aim,
+    onAmount: startsOn ? 1 : 0,
+    toggleCooldown: 0,
   };
 }
 
@@ -38,6 +47,8 @@ export function resetFlashlight(flashlight: Flashlight, startsOn: boolean, aim =
   flashlight.flickerAmount = 0;
   flashlight.flickerPhase = 0;
   flashlight.flickerHold = 0;
+  flashlight.onAmount = startsOn ? 1 : 0;
+  flashlight.toggleCooldown = 0;
 }
 
 /** Switches the light; it stays off while the battery is empty. */

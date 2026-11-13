@@ -243,7 +243,7 @@ export function stepWorld(world: World, input: StepInput, stepSeconds: number): 
   const startY = player.y;
 
   world.elapsedSeconds += stepSeconds;
-  flashlightSystem(flashlight, input.toggleFlashlight);
+  flashlightSystem(flashlight, input.toggleFlashlight, BALANCE.flashlight, stepSeconds);
   if (flashlight.on !== wasOn) events.lightToggled++;
   const hadCharge = flashlight.battery > 0;
   batterySystem(flashlight, world.battery, stepSeconds);
