@@ -15,6 +15,7 @@ src/
   audio/      Sonido con WebAudio y la lógica pura que decide qué suena
   save/       Guardado en localStorage y récords de la partida
 tests/        Pruebas de la lógica pura
+scripts/      Política de seguridad de la página y comprobación de la carpeta compilada
 public/       Icono y portada
 docs/         Documentación pública
 ```
@@ -55,16 +56,16 @@ docs/         Documentación pública
 - **El coste está en los píxeles.** La lógica gasta poco; lo caro es rellenar la pantalla. Por eso se limitan los FPS con un divisor entero del refresco del monitor (a 144 Hz se dibuja a 72 FPS, cada frame con el mismo tiempo en pantalla), `core/resolution.ts` limita la densidad del lienzo, la capa de oscuridad usa la mitad de resolución porque solo contiene formas suaves, y en menús y pausa el lienzo se dibuja una sola vez.
 - **Sin objetos nuevos en cada paso.** Rutas, polígonos de luz y figuras reutilizan memoria o se dibujan una sola vez, para evitar pausas del recolector de basura.
 - **Pensado para un marco.** El juego funciona dentro de un `iframe`: no navega fuera, no abre ventanas, no roba el foco al cargar y deja salir con Tab.
-- **Página cerrada.** Al compilar, `vite.config.ts` añade a la página una política de seguridad de contenido que solo permite su propio script, su hoja de estilos y su icono, y ninguna conexión de red: el juego no la necesita, porque el sonido se sintetiza y las figuras se dibujan en memoria. No se añade en el servidor de desarrollo, que necesita conexiones propias para recargar.
+- **Página cerrada.** Al compilar, `vite.config.ts` añade a la página una política de seguridad de contenido que solo permite su propio script, su hoja de estilos y su icono, y ninguna conexión de red: el juego no la necesita, porque el sonido se sintetiza y las figuras se dibujan en memoria. No se añade en el servidor de desarrollo, que necesita conexiones propias para recargar. Antes de publicar, `scripts/check-dist.ts` revisa la carpeta compilada con Node, sin las herramientas de compilación: la política debe ser exactamente la de `scripts/csp.ts`, y ningún archivo puede llevar direcciones externas, mapas de código fuente ni código que ejecute texto, escriba HTML o hable con otras ventanas o servidores.
 - **Seguridad del jugador.** El parpadeo es suave, no supera 3 cambios por segundo y se puede quitar. Encender y apagar la linterna se funde en un instante breve y no se puede repetir más de unas tres veces por segundo, aunque se pulse muy deprisa. Todo lo importante que suena también se muestra en pantalla.
 
 ## Guardado
 
-Se usa una sola clave de `localStorage`, `apagon:v1`, con los ajustes, el nivel desbloqueado y los mejores tiempos. Se valida campo por campo: un dato corrupto o fuera de rango se sustituye por su valor predeterminado sin perder los demás. Los guardados de versiones anteriores, que tenían un único mejor tiempo, se leen como el récord del primer nivel. La partida en curso no se guarda: al recargar, "Continuar" empieza desde el inicio del nivel desbloqueado.
+Se usa una sola clave de `localStorage`, `apagon:v1`, con los ajustes, el nivel desbloqueado y los mejores tiempos. Se valida campo por campo: un dato corrupto o fuera de rango se sustituye por su valor predeterminado sin perder los demás. Los guardados de versiones anteriores, que tenían un único mejor tiempo, se leen como el récord del primer nivel. Antes de escribir, el juego vuelve a leer lo guardado y se queda con lo mejor de ambos (el nivel más alto y el menor tiempo de cada nivel), para que otra pestaña abierta a la vez no borre el progreso; los ajustes son los que se acaban de elegir. La partida en curso no se guarda: al recargar, "Continuar" empieza desde el inicio del nivel desbloqueado.
 
 ## Pruebas
 
-Las pruebas usan Vitest y cubren la lógica pura: visibilidad, persecución, batería, objetos, joysticks y toques múltiples, guardado (también con datos manipulados o enormes), progreso, audio posicional, el interruptor de la linterna y datos de cada nivel. `tests/levels.test.ts` también juega cada nivel con un jugador simulado sobre los sistemas reales, con los enemigos activos. Comprueba que se pueden ganar, aunque no sirve para medir si la dificultad resulta justa para una persona. El dibujo y el sonido real no tienen pruebas automáticas y se revisan a mano.
+Las pruebas usan Vitest y cubren la lógica pura: visibilidad, persecución, batería, objetos, joysticks y toques múltiples, guardado (también con datos manipulados o enormes, y con dos pestañas abiertas), la comprobación de la carpeta compilada, progreso, audio posicional, el interruptor de la linterna y datos de cada nivel. `tests/levels.test.ts` también juega cada nivel con un jugador simulado sobre los sistemas reales, con los enemigos activos. Comprueba que se pueden ganar, aunque no sirve para medir si la dificultad resulta justa para una persona. El dibujo y el sonido real no tienen pruebas automáticas y se revisan a mano.
 
 ## Cómo agregar un nivel
 
