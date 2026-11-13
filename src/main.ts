@@ -46,7 +46,7 @@ import {
   recordLevelWin,
   type RunProgress,
 } from './save/progress';
-import { getBrowserStorage, loadSave, writeSave } from './save/storage';
+import { getBrowserStorage, loadSave, mergeSave, writeSave } from './save/storage';
 import { DebugOverlay } from './ui/debugOverlay';
 import { promptText } from './ui/prompts';
 import { SafeAreaProbe, type SafeInsets } from './ui/safeArea';
@@ -265,8 +265,9 @@ function applyReduceMotion(on: boolean): void {
   document.documentElement.classList.toggle('reduce-motion', on);
 }
 
+/** Writes settings and progress, keeping any progress another open tab saved meanwhile. */
 function persist(): void {
-  writeSave(storage, {
+  const merged = mergeSave(loadSave(storage), {
     reduceFlicker: chosenReduceFlicker,
     muted: world.settings.muted,
     classicLight: world.settings.classicLight,
@@ -277,6 +278,10 @@ function persist(): void {
     bestLevelTimes: save.bestLevelTimes,
     bestFullRunSeconds: save.bestFullRunSeconds,
   });
+  save.unlockedLevel = merged.unlockedLevel;
+  save.bestLevelTimes = merged.bestLevelTimes;
+  save.bestFullRunSeconds = merged.bestFullRunSeconds;
+  writeSave(storage, merged);
 }
 
 function setMuted(muted: boolean): void {

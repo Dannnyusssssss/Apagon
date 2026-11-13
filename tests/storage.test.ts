@@ -4,6 +4,7 @@ import {
   defaultSave,
   isNewBest,
   loadSave,
+  mergeSave,
   parseSave,
   SAVE_KEY,
   serializeSave,
@@ -359,5 +360,82 @@ describe('hostile saves', () => {
     }
     // NaN and Infinity are not valid JSON: the whole save falls back to the defaults.
     expect(parseSave('{"version":1,"bestFullRunSeconds":Infinity}')).toEqual(defaultSave());
+  });
+});
+
+describe('two open tabs (mergeSave)', () => {
+  function times(...values: (number | null)[]): (number | null)[] {
+    return Array.from({ length: LEVEL_COUNT }, (_, i) => values[i] ?? null);
+  }
+
+  it('keeps the progress another tab saved when this tab only changes a setting', () => {
+    const storage = new MemoryStorage();
+    // Both tabs opened on a fresh save; tab A then wins two levels.
+    const tabB = loadSave(storage);
+    writeSave(storage, { ...defaultSave(), unlockedLevel: 3, bestLevelTimes: times(40, 55) });
+    // Tab B mutes the sound and writes what it loaded at start.
+    writeSave(storage, mergeSave(loadSave(storage), { ...tabB, muted: true }));
+    const stored = loadSave(storage);
+    expect(stored.muted).toBe(true);
+    expect(stored.unlockedLevel).toBe(3);
+    expect(stored.bestLevelTimes).toEqual(times(40, 55));
+  });
+
+  it('keeps the highest level and the lowest time of each level and of the whole game', () => {
+    const stored: SaveData = {
+      ...defaultSave(),
+      unlockedLevel: 2,
+      bestLevelTimes: times(30, null, 90),
+      bestFullRunSeconds: 500,
+    };
+    const mine: SaveData = {
+      ...defaultSave(),
+      unlockedLevel: 3,
+      bestLevelTimes: times(45, 60, 80),
+      bestFullRunSeconds: null,
+    };
+    const merged = mergeSave(stored, mine);
+    expect(merged.unlockedLevel).toBe(3);
+    expect(merged.bestLevelTimes).toEqual(times(30, 60, 80));
+    expect(merged.bestFullRunSeconds).toBe(500);
+  });
+
+  it('takes every setting from this tab, even to switch one off', () => {
+    const stored: SaveData = {
+      ...defaultSave(),
+      muted: true,
+      classicLight: true,
+      leftHanded: true,
+    };
+    const mine: SaveData = { ...defaultSave(), reduceFlicker: true, touchControls: 'always' };
+    const merged = mergeSave(stored, mine);
+    expect(merged.muted).toBe(false);
+    expect(merged.classicLight).toBe(false);
+    expect(merged.leftHanded).toBe(false);
+    expect(merged.reduceFlicker).toBe(true);
+    expect(merged.touchControls).toBe('always');
+  });
+
+  it('never lets an edited save smuggle in invalid values', () => {
+    const storage = new MemoryStorage();
+    storage.setItem(
+      SAVE_KEY,
+      JSON.stringify({
+        version: 1,
+        unlockedLevel: 999,
+        bestLevelTimes: [-1, 0.5, 'fast', 1e12],
+        bestFullRunSeconds: Number.MAX_VALUE,
+      }),
+    );
+    const merged = mergeSave(loadSave(storage), { ...defaultSave(), bestLevelTimes: times(70) });
+    expect(merged.unlockedLevel).toBe(1);
+    expect(merged.bestLevelTimes).toEqual(times(70, 0.5));
+    expect(merged.bestFullRunSeconds).toBeNull();
+  });
+
+  it('works with an empty or blocked storage', () => {
+    const mine: SaveData = { ...defaultSave(), unlockedLevel: 2, bestLevelTimes: times(33) };
+    expect(mergeSave(loadSave(new MemoryStorage()), mine)).toEqual(mine);
+    expect(mergeSave(loadSave(throwing), mine)).toEqual(mine);
   });
 });

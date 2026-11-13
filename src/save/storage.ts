@@ -151,6 +151,28 @@ export function writeSave(storage: StorageLike | null, data: SaveData): boolean 
   }
 }
 
+/**
+ * Combines what this tab is about to write with what is already stored, so a second
+ * open tab never throws away progress made in the other one. Settings come from this
+ * tab (the player just chose them); progress keeps the best of both: the highest
+ * unlocked level and the lowest valid time of each level and of the whole game.
+ */
+export function mergeSave(stored: SaveData, mine: SaveData): SaveData {
+  return {
+    ...mine,
+    unlockedLevel: Math.max(stored.unlockedLevel, mine.unlockedLevel),
+    bestLevelTimes: mine.bestLevelTimes.map((time, i) =>
+      bestOf(stored.bestLevelTimes[i] ?? null, time),
+    ),
+    bestFullRunSeconds: bestOf(stored.bestFullRunSeconds, mine.bestFullRunSeconds),
+  };
+}
+
+function bestOf(a: number | null, b: number | null): number | null {
+  const valid = [a, b].filter(isValidTime);
+  return valid.length === 0 ? null : Math.min(...valid);
+}
+
 /** True when `time` beats the stored best (or there is none). */
 export function isNewBest(time: number, best: number | null): boolean {
   return isValidTime(time) && (best === null || time < best);
