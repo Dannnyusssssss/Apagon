@@ -4,3 +4,7 @@ coverage/
 .env*
 *.pem
 *.key
+*.p12
+*.pfx
+*.keystore
+*.jks
