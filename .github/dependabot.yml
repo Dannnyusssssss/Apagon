@@ -1,0 +1,7 @@
+# Monthly update proposals for the actions used by the workflows (pinned by hash).
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: monthly
