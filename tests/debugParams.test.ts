@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { parseDebugParams } from '../src/core/debugParams';
+import { parseDebugParams, recordsAllowed } from '../src/core/debugParams';
 import { LEVEL_COUNT } from '../src/data/levels';
 
 describe('debug params', () => {
@@ -43,5 +43,50 @@ describe('debug params', () => {
     for (const bad of ['0', String(LEVEL_COUNT + 1), '-1', '1.5', 'abc', '', '01', '<b>']) {
       expect(parseDebugParams(`?level=${encodeURIComponent(bad)}`).level).toBeNull();
     }
+  });
+});
+
+describe('records with debug helps', () => {
+  it('are saved only without any help', () => {
+    expect(recordsAllowed(parseDebugParams(''))).toBe(true);
+    for (const help of ['?god', '?level=1', '?seed=7', '?debug', '?debug&seed=7']) {
+      expect(recordsAllowed(parseDebugParams(help))).toBe(false);
+    }
+  });
+
+  it('are still saved when the on-screen controls are forced', () => {
+    expect(recordsAllowed(parseDebugParams('?touch'))).toBe(true);
+  });
+
+  it('are saved when a help is written with an invalid value, because it is ignored', () => {
+    expect(recordsAllowed(parseDebugParams('?seed=abc&level=9&god=no'))).toBe(true);
+  });
+});
+
+describe('hostile debug params', () => {
+  it('ignore a huge query string without breaking', () => {
+    const params = parseDebugParams(`?seed=${'9'.repeat(1_100_000)}&level=${'1'.repeat(5000)}`);
+    expect(params.seed).toBeNull();
+    expect(params.level).toBeNull();
+  });
+
+  it('ignore control characters, emoji, HTML and paths', () => {
+    for (const bad of [
+      '\u0000',
+      '%00',
+      '😀',
+      '<script>alert(1)</script>',
+      '../../',
+      "' OR 1=1 --",
+    ]) {
+      const value = encodeURIComponent(bad);
+      const params = parseDebugParams(`?seed=${value}&level=${value}&god=${value}&debug=${value}`);
+      expect(params).toEqual({ debug: false, god: false, seed: null, level: null, touch: false });
+    }
+  });
+
+  it('read only the first value of a repeated parameter', () => {
+    expect(parseDebugParams('?level=1&level=<b>').level).toBe(1);
+    expect(parseDebugParams('?level=<b>&level=1').level).toBeNull();
   });
 });

@@ -44,6 +44,15 @@ export function parseDebugParams(search: string): DebugParams {
   return result;
 }
 
+/**
+ * Whether a run may save progress and best times. Any help that changes the game or
+ * reveals it (invincibility, a chosen level, a known layout, the debug panel) turns
+ * recording off. Forcing the on-screen controls is not a help, so it keeps it.
+ */
+export function recordsAllowed(params: DebugParams): boolean {
+  return !params.god && params.level === null && params.seed === null && !params.debug;
+}
+
 function isFlagOn(value: string | null): boolean {
   return value === '' || value === '1' || value === 'true';
 }

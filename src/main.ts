@@ -15,7 +15,7 @@ import {
   updateEnemyAudio,
   type EnemyAudioConfig,
 } from './audio/spatial';
-import { parseDebugParams } from './core/debugParams';
+import { parseDebugParams, recordsAllowed } from './core/debugParams';
 import { FramePacer } from './core/framePacer';
 import { attachKeyboard, InputState } from './core/input';
 import { attachPointer, PointerAim } from './core/pointer';
@@ -75,8 +75,8 @@ const debugOverlay = debugParams.debug ? new DebugOverlay(container, gameCanvas)
 
 // The seed only picks among the fixed enemy starts and item spots of each map.
 const seed = debugParams.seed ?? Date.now() >>> 0;
-/** Debug runs never touch the saved progress. */
-const recording = debugParams.level === null && !debugParams.god;
+/** Runs with any debug help never touch the saved progress. */
+const recording = recordsAllowed(debugParams);
 /** Keeps layouts from repeating when a level is loaded again, unless the seed was fixed. */
 let worldsLoaded = 0;
 
