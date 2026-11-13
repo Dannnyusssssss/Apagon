@@ -309,3 +309,55 @@ describe('classic light setting', () => {
     expect(loadSave(storage).classicLight).toBe(true);
   });
 });
+
+describe('hostile saves', () => {
+  const valid = (extra: Record<string, unknown> = {}): string =>
+    JSON.stringify({ version: 1, settings: { muted: true }, unlockedLevel: 2, ...extra });
+
+  it('survive a save of more than 1 MB without breaking', () => {
+    const huge = valid({ padding: 'x'.repeat(1_100_000) });
+    expect(parseSave(huge).muted).toBe(true);
+    expect(parseSave('x'.repeat(1_100_000))).toEqual(defaultSave());
+  });
+
+  it('ignore control characters, emoji and HTML in place of valid values', () => {
+    for (const bad of ['\u0000\u001b[2J', '😀', '<img src=x onerror=alert(1)>', '<script>']) {
+      const data = parseSave(
+        JSON.stringify({
+          version: 1,
+          settings: { touchControls: bad, muted: bad },
+          unlockedLevel: bad,
+          bestLevelTimes: [bad, bad, bad],
+          bestFullRunSeconds: bad,
+        }),
+      );
+      expect(data).toEqual(defaultSave());
+    }
+  });
+
+  it('never let __proto__ or constructor keys reach the game data', () => {
+    const raw =
+      '{"version":1,"__proto__":{"polluted":true},"constructor":{"prototype":{"polluted":true}},' +
+      '"settings":{"__proto__":{"muted":true},"muted":false},"unlockedLevel":1}';
+    const data = parseSave(raw);
+    expect(data).toEqual(defaultSave());
+    expect(Object.keys(data).sort()).toEqual(Object.keys(defaultSave()).sort());
+    expect(({} as Record<string, unknown>)['polluted']).toBeUndefined();
+  });
+
+  it('take only the times of the existing levels from a very long list', () => {
+    const times = Array.from({ length: 100_000 }, () => 12);
+    const data = parseSave(valid({ bestLevelTimes: times }));
+    expect(data.bestLevelTimes).toHaveLength(LEVEL_COUNT);
+  });
+
+  it('reject impossible numbers written by hand', () => {
+    for (const bad of [-5, 0, 1e9, Number.MAX_VALUE]) {
+      const data = parseSave(valid({ bestFullRunSeconds: bad, unlockedLevel: bad }));
+      expect(data.bestFullRunSeconds).toBeNull();
+      expect(data.unlockedLevel).toBe(1);
+    }
+    // NaN and Infinity are not valid JSON: the whole save falls back to the defaults.
+    expect(parseSave('{"version":1,"bestFullRunSeconds":Infinity}')).toEqual(defaultSave());
+  });
+});
