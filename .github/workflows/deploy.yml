@@ -21,6 +21,9 @@ jobs:
     steps:
       - name: Descargar el código
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          # The token is not left on disk while dependencies and the build run.
+          persist-credentials: false
 
       - name: Preparar Node
         uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
@@ -29,7 +32,8 @@ jobs:
           cache: npm
 
       - name: Instalar dependencias
-        run: npm ci
+        # No package runs its own install code; none of them needs it on Linux.
+        run: npm ci --ignore-scripts
 
       - name: Lint
         run: npm run lint
@@ -42,6 +46,9 @@ jobs:
 
       - name: Build
         run: npm run build
+
+      - name: Comprobar dist/ (política de seguridad, sin direcciones externas ni código prohibido)
+        run: npm run check:dist
 
       - name: Configurar Pages
         uses: actions/configure-pages@45bfe0192ca1faeb007ade9deae92b16b8254a0d # v6.0.0

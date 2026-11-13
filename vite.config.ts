@@ -1,5 +1,6 @@
 import { defineConfig, type Plugin } from 'vitest/config';
 import { DESCRIPTION, THEME_COLOR, TITLE } from './src/data/meta.ts';
+import { CONTENT_SECURITY_POLICY } from './scripts/csp.ts';
 
 function escapeHtml(text: string): string {
   return text
@@ -21,24 +22,6 @@ function injectMeta(): Plugin {
     },
   };
 }
-
-/**
- * Content Security Policy of the published page, matched to what the build loads:
- * one own module script, one own stylesheet and the own favicon. Audio is synthesized
- * with WebAudio, sprites are in-memory canvases, fonts are the system ones, and nothing
- * is fetched, so everything else stays closed. `frame-ancestors` is left out: a <meta>
- * policy cannot set it, and the game must stay embeddable in the portal.
- */
-const CONTENT_SECURITY_POLICY = [
-  "default-src 'none'",
-  "script-src 'self'",
-  "style-src 'self'",
-  "img-src 'self'",
-  "connect-src 'none'",
-  "object-src 'none'",
-  "base-uri 'none'",
-  "form-action 'none'",
-].join('; ');
 
 const CHARSET_TAG = '<meta charset="UTF-8" />';
 

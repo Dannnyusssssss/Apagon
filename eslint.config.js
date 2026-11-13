@@ -27,5 +27,9 @@ export default tseslint.config(
       'no-new-func': 'error',
     },
   },
+  {
+    files: ['scripts/**'],
+    languageOptions: { globals: { ...globals.node } },
+  },
   prettier,
 );
