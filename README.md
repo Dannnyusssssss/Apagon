@@ -4,7 +4,7 @@ Estás atrapado a oscuras. Solo ves lo que alcanza tu linterna. Encuentra las ll
 
 **Jugar:** https://dannnyusssssss.github.io/Apagon/
 
-![Portada de Apagón](public/cover.png)
+![Portada de Apagón](docs/cover.png)
 
 ## Cómo se juega
 
