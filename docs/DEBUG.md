@@ -14,7 +14,7 @@ Cualquier valor inválido se ignora. Un indicador se activa si aparece sin valor
 
 Se pueden combinar: `?debug&god&seed=7&level=3`.
 
-No hay teclas de depuración.
+No hay teclas de depuración. F3 no es una de ellas: muestra a cualquier jugador un panel de rendimiento (FPS, tiempo por frame, peor frame, frames largos, tamaño del lienzo y cada cuántos refrescos se dibuja), sin datos del mapa ni de los enemigos, así que la partida sí guarda progreso y récords. También se activa en Opciones → Pantalla. Con `?debug` ese panel no aparece, porque el de depuración ya muestra esos datos.
 
 ## Áreas
 

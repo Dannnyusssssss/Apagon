@@ -19,17 +19,20 @@ Estás atrapado a oscuras. Solo ves lo que alcanza tu linterna. Encuentra las ll
 
 ## Controles
 
+Teclas por defecto. Todas, salvo Esc, F3 y Tab, se pueden cambiar en **Opciones → Controles**.
+
 | Tecla | Acción |
 |---|---|
 | W A S D o flechas | Moverse |
 | Ratón | Apuntar la linterna |
 | Shift o F | Encender o apagar la linterna |
 | E | Recoger llaves y pilas, abrir la salida |
-| Esc o P | Pausa |
+| Esc o P | Pausa (Esc pausa siempre) |
 | M | Silenciar el sonido |
+| F3 | Mostrar u ocultar el rendimiento (FPS) |
 | Tab | Salir del juego (deja de capturar el teclado) |
 
-Si Shift abre un aviso del sistema, usa F.
+Si Shift abre un aviso del sistema, cambia la tecla en Opciones o usa F.
 
 ### En celular o tableta
 
@@ -43,14 +46,25 @@ Si Shift abre un aviso del sistema, usa F.
 
 Los controles aparecen solos al tocar la pantalla. Se juega mejor en horizontal, pero también funciona en vertical. Se puede mover y pulsar a la vez, y el teclado sigue funcionando en equipos con ambos.
 
+## Menús y opciones
+
+El inicio y la pausa solo tienen lo necesario para jugar, más **Cómo jugar** y **Opciones**. Opciones se abre como una ventana con cuatro pestañas (se cambian con las flechas, y Esc o "Volver" la cierran):
+
+- **Accesibilidad:** reducir parpadeo y linterna clásica.
+- **Sonido:** silencio y volumen de música, efectos y enemigo. Ningún ajuste puede subir el sonido por encima del volumen normal del juego.
+- **Controles:** apuntar con el ratón, velocidad de giro de la luz (50 a 150 %), cambiar las teclas (con aviso si una ya está en uso y botón para restaurarlas) y, en dispositivos táctiles, los controles en pantalla.
+- **Pantalla:** calidad gráfica (baja, media o alta: menos píxeles para equipos lentos), brillo (un poco más claro en pantallas oscuras, sin iluminar lo que la luz no alcanza) y el panel de rendimiento.
+
 ## Accesibilidad
 
-- **Reducir parpadeo** (en el inicio y en la pausa): quita el parpadeo suave de la linterna y las animaciones del menú. Se activa solo si el sistema tiene activado "reducir movimiento". Aun sin activarlo, ningún cambio de luz supera 3 por segundo ni apaga la pantalla.
+- **Reducir parpadeo** (en el inicio y en Opciones): quita el parpadeo suave de la linterna y las animaciones del menú. Se activa solo si el sistema tiene activado "reducir movimiento". Aun sin activarlo, ningún cambio de luz supera 3 por segundo ni apaga la pantalla.
 - **Jugable sin sonido:** la batería baja y la cercanía del enemigo también se muestran en pantalla.
-- **Linterna clásica (más fácil)** (en el inicio y en la pausa): cambia el haz por un círculo de luz alrededor del personaje, que detiene al enemigo venga de donde venga. Se guarda en el navegador.
-- **Apuntar con el ratón** (en el inicio y en la pausa): se puede desactivar. Sin ratón, el juego se completa solo con teclado.
+- **Linterna clásica (más fácil)** (en Opciones): cambia el haz por un círculo de luz alrededor del personaje, que detiene al enemigo venga de donde venga. Se guarda en el navegador.
+- **Apuntar con el ratón** (en Opciones): se puede desactivar. Sin ratón, el juego se completa solo con teclado.
 - **Sonido posicional:** con auriculares se oye de qué lado y a qué distancia está el enemigo, y suena apagado si hay paredes de por medio. Cuando está cerca, el borde de la pantalla se oscurece más por el lado del que viene.
-- **Controles táctiles** (en el inicio y en la pausa, en dispositivos táctiles): automático, siempre o nunca. **Controles a la izquierda (zurdos)** intercambia los lados. Ninguna acción exige un gesto de varios dedos.
+- **Teclas a tu gusto:** cada acción admite dos teclas y se pueden cambiar; la tabla se maneja con teclado o ratón.
+- **Volumen por separado** de música, efectos y enemigo, y **brillo** para pantallas oscuras.
+- **Controles táctiles** (en Opciones, en dispositivos táctiles): automático, siempre o nunca. **Controles a la izquierda (zurdos)** intercambia los lados. Ninguna acción exige un gesto de varios dedos.
 - Se puede jugar entero con teclado o con los dedos. El juego se pausa solo al perder el foco.
 
 ## Contenido
@@ -59,7 +73,7 @@ Oscuridad, tensión y persecución. Sin sangre ni imágenes explícitas. Incluye
 
 ## Privacidad
 
-El juego no recoge datos personales ni se conecta a ningún servicio. Solo guarda en tu navegador los ajustes (reducir parpadeo, silencio, linterna clásica, apuntar con el ratón, controles táctiles y zurdos), el nivel alcanzado y tus mejores tiempos, con la clave `apagon:v1`.
+El juego no recoge datos personales ni se conecta a ningún servicio. Solo guarda en tu navegador los ajustes (reducir parpadeo, silencio, volúmenes, linterna clásica, apuntar con el ratón, giro de la luz, teclas, controles táctiles y zurdos, calidad, brillo y panel de rendimiento), el nivel alcanzado y tus mejores tiempos, con la clave `apagon:v1`.
 
 ## Desarrollo
 

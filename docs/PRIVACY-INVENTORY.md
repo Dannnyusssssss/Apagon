@@ -12,7 +12,7 @@ Se guarda solo en el navegador del jugador, en `localStorage`, con la clave `apa
 
 | Dato | Para qué |
 |---|---|
-| Ajustes: reducir parpadeo, silencio, linterna clásica, apuntar con el ratón, controles táctiles y zurdos | Recordar cómo prefiere jugar cada persona |
+| Ajustes: reducir parpadeo, silencio, volumen de música, efectos y enemigo, linterna clásica, apuntar con el ratón, giro de la luz, teclas elegidas, controles táctiles y zurdos, calidad gráfica, brillo y panel de rendimiento | Recordar cómo prefiere jugar cada persona |
 | Nivel alcanzado | Ofrecer "Continuar" desde ese nivel |
 | Mejores tiempos de cada nivel y de la partida completa | Mostrar los récords propios |
 
