@@ -32,6 +32,11 @@ type Wave = 'sine' | 'triangle' | 'square' | 'sawtooth';
 export class Sfx {
   private ctx: AudioContext | null = null;
   private master: GainNode | null = null;
+  /** One volume per channel, under the master volume and its limiter (0..1 each). */
+  private musicChannel: GainNode | null = null;
+  private effectsChannel: GainNode | null = null;
+  private enemyChannel: GainNode | null = null;
+  private readonly volumes = { music: 1, effects: 1, enemy: 1 };
   private noise: AudioBuffer | null = null;
   private muted = false;
 
@@ -71,6 +76,22 @@ export class Sfx {
     if (this.ctx && this.master) {
       this.master.gain.setTargetAtTime(this.volume(), this.ctx.currentTime, MUTE_FADE);
     }
+  }
+
+  /**
+   * Volume of each channel, 0..1. They only lower the sound: the master volume and the
+   * limiter after it stay the loudest the game can be.
+   */
+  setVolumes(music: number, effects: number, enemy: number): void {
+    this.volumes.music = unit(music);
+    this.volumes.effects = unit(effects);
+    this.volumes.enemy = unit(enemy);
+    const { ctx } = this;
+    if (!ctx) return;
+    const now = ctx.currentTime;
+    this.musicChannel?.gain.setTargetAtTime(this.volumes.music, now, MUTE_FADE);
+    this.effectsChannel?.gain.setTargetAtTime(this.volumes.effects, now, MUTE_FADE);
+    this.enemyChannel?.gain.setTargetAtTime(this.volumes.enemy, now, MUTE_FADE);
   }
 
   /**
@@ -289,6 +310,9 @@ export class Sfx {
 
       this.ctx = ctx;
       this.master = master;
+      this.musicChannel = this.channel(master, this.volumes.music);
+      this.effectsChannel = this.channel(master, this.volumes.effects);
+      this.enemyChannel = this.channel(master, this.volumes.enemy);
       this.noise = createNoise(ctx);
       this.createMusicBus();
       this.createEnemyBus();
@@ -299,13 +323,21 @@ export class Sfx {
     }
   }
 
+  private channel(master: GainNode, volume: number): GainNode | null {
+    if (!this.ctx) return null;
+    const gain = this.ctx.createGain();
+    gain.gain.value = volume;
+    gain.connect(master);
+    return gain;
+  }
+
   /** Music voices -> low-pass (darkens with low battery) -> volume, plus an echo send. */
   private createMusicBus(): void {
-    const { ctx, master } = this;
-    if (!ctx || !master) return;
+    const { ctx, musicChannel } = this;
+    if (!ctx || !musicChannel) return;
     const music = ctx.createGain();
     music.gain.value = this.musicOn ? MUSIC.volume : 0;
-    music.connect(master);
+    music.connect(musicChannel);
 
     const filter = ctx.createBiquadFilter();
     filter.type = 'lowpass';
@@ -330,11 +362,11 @@ export class Sfx {
 
   /** Enemy sounds go through walls muffling, stereo position and distance volume. */
   private createEnemyBus(): void {
-    const { ctx, master } = this;
-    if (!ctx || !master) return;
+    const { ctx, enemyChannel } = this;
+    if (!ctx || !enemyChannel) return;
     const output = ctx.createGain();
     output.gain.value = this.enemyOn ? 1 : 0;
-    output.connect(master);
+    output.connect(enemyChannel);
 
     const level = ctx.createGain();
     level.gain.value = this.enemyLevel;
@@ -368,11 +400,11 @@ export class Sfx {
    * through a band-pass, with a slow uneven swell. Silent until the battery is low.
    */
   private createBulb(): void {
-    const { ctx, master } = this;
-    if (!ctx || !master) return;
+    const { ctx, effectsChannel } = this;
+    if (!ctx || !effectsChannel) return;
     const bulb = ctx.createGain();
     bulb.gain.value = this.batteryLevel * CFG.lowBatteryMaxVolume;
-    bulb.connect(master);
+    bulb.connect(effectsChannel);
 
     const swell = ctx.createGain();
     swell.gain.value = 0.7;
@@ -440,7 +472,7 @@ export class Sfx {
     duration: number,
     volume: number,
     endFreq = freq,
-    destination: AudioNode | null = this.master,
+    destination: AudioNode | null = this.effectsChannel,
   ): void {
     const { ctx } = this;
     if (!ctx || !destination) return;
@@ -460,7 +492,7 @@ export class Sfx {
     freq: number,
     duration: number,
     volume: number,
-    destination: AudioNode | null = this.master,
+    destination: AudioNode | null = this.effectsChannel,
   ): void {
     const { ctx, noise } = this;
     const start = this.now();
@@ -492,4 +524,9 @@ function createNoise(ctx: AudioContext): AudioBuffer {
   const rng = createRng(NOISE_SEED);
   for (let i = 0; i < data.length; i++) data[i] = nextFloat(rng) * 2 - 1;
   return buffer;
+}
+
+/** A volume clamped to 0..1; anything that is not a number is silence. */
+function unit(value: number): number {
+  return Number.isFinite(value) ? Math.min(1, Math.max(0, value)) : 0;
 }

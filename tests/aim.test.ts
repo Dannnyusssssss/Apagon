@@ -5,7 +5,7 @@ import { HOUSE } from '../src/data/rooms';
 import { createFlashlight } from '../src/game/flashlight';
 import { createPlayer } from '../src/game/player';
 import { aimSystem } from '../src/game/systems/flashlight';
-import { createWorld, resetWorld } from '../src/game/world';
+import { createWorld, resetWorld, stepWorld } from '../src/game/world';
 
 const STEP = BALANCE.simulation.stepSeconds;
 const RATE = BALANCE.flashlight.turnRate;
@@ -48,5 +48,32 @@ describe('flashlight aim', () => {
     resetWorld(world);
     expect(world.flashlight.aim).toBeCloseTo(Math.PI / 2, 9);
     expect(world.flashlight.prevAim).toBeCloseTo(Math.PI / 2, 9);
+  });
+});
+
+describe('turn sensitivity', () => {
+  /** Degrees the beam turns in one step toward the opposite side, with this scale. */
+  function turnInOneStep(turnScale: number | undefined): number {
+    const world = createWorld(HOUSE, {
+      seed: 3,
+      reduceFlicker: false,
+      ...(turnScale === undefined ? {} : { turnScale }),
+    });
+    resetWorld(world);
+    world.player.facingX = 0;
+    world.player.facingY = -1;
+    const before = world.flashlight.aim;
+    stepWorld(world, { axisX: 0, axisY: 0, toggleFlashlight: false, interact: false }, STEP);
+    return (Math.abs(angleDelta(before, world.flashlight.aim)) * 180) / Math.PI;
+  }
+
+  it('is normal by default', () => {
+    expect(turnInOneStep(undefined)).toBeCloseTo((RATE * STEP * 180) / Math.PI, 6);
+  });
+
+  it('scales how fast the beam turns, and only that', () => {
+    const normal = turnInOneStep(1);
+    expect(turnInOneStep(0.5)).toBeCloseTo(normal * 0.5, 6);
+    expect(turnInOneStep(1.5)).toBeCloseTo(normal * 1.5, 6);
   });
 });

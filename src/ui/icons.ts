@@ -12,7 +12,14 @@ export type IconKind =
   | 'resume'
   | 'pause'
   | 'hand'
-  | 'stick';
+  | 'stick'
+  | 'gear'
+  | 'help'
+  | 'keyboard'
+  | 'display'
+  | 'sun'
+  | 'back'
+  | 'volume';
 
 /** Icons are drawn on a 24x24 grid and scaled for sharp edges on dense screens. */
 const GRID = 24;
@@ -222,5 +229,89 @@ const DRAW: Record<IconKind, (ctx: CanvasRenderingContext2D) => void> = {
     ctx.beginPath();
     ctx.arc(14.5, 10, 4, 0, Math.PI * 2);
     ctx.fill();
+  },
+  gear(ctx) {
+    // A cog: eight teeth around a ring.
+    for (let i = 0; i < 8; i++) {
+      const a = (i * Math.PI) / 4;
+      ctx.beginPath();
+      ctx.moveTo(12 + Math.cos(a) * 6.5, 12 + Math.sin(a) * 6.5);
+      ctx.lineTo(12 + Math.cos(a) * 9.5, 12 + Math.sin(a) * 9.5);
+      ctx.lineWidth = 3;
+      ctx.stroke();
+    }
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.arc(12, 12, 6.5, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.arc(12, 12, 2.5, 0, Math.PI * 2);
+    ctx.stroke();
+  },
+  help(ctx) {
+    // A question mark in a circle.
+    ctx.beginPath();
+    ctx.arc(12, 12, 9.5, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.arc(12, 9.5, 3, Math.PI, Math.PI * 2.3);
+    ctx.lineTo(12, 14.5);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.arc(12, 17.5, 1.2, 0, Math.PI * 2);
+    ctx.fill();
+  },
+  keyboard(ctx) {
+    ctx.strokeRect(2.5, 6.5, 19, 11);
+    for (const x of [6, 10, 14, 18]) ctx.fillRect(x - 1, 9, 2, 2);
+    ctx.fillRect(8, 13.5, 8, 1.8);
+  },
+  display(ctx) {
+    ctx.strokeRect(3, 4.5, 18, 12);
+    ctx.beginPath();
+    ctx.moveTo(12, 16.5);
+    ctx.lineTo(12, 20);
+    ctx.moveTo(8, 20);
+    ctx.lineTo(16, 20);
+    ctx.stroke();
+  },
+  sun(ctx) {
+    ctx.beginPath();
+    ctx.arc(12, 12, 4.5, 0, Math.PI * 2);
+    ctx.stroke();
+    for (let i = 0; i < 8; i++) {
+      const a = (i * Math.PI) / 4;
+      ctx.beginPath();
+      ctx.moveTo(12 + Math.cos(a) * 7.5, 12 + Math.sin(a) * 7.5);
+      ctx.lineTo(12 + Math.cos(a) * 10, 12 + Math.sin(a) * 10);
+      ctx.stroke();
+    }
+  },
+  back(ctx) {
+    ctx.beginPath();
+    ctx.moveTo(10, 6);
+    ctx.lineTo(4, 12);
+    ctx.lineTo(10, 18);
+    ctx.moveTo(4, 12);
+    ctx.lineTo(20, 12);
+    ctx.stroke();
+  },
+  volume(ctx) {
+    // A speaker with two sound waves.
+    ctx.beginPath();
+    ctx.moveTo(3, 9.5);
+    ctx.lineTo(7, 9.5);
+    ctx.lineTo(12, 5);
+    ctx.lineTo(12, 19);
+    ctx.lineTo(7, 14.5);
+    ctx.lineTo(3, 14.5);
+    ctx.closePath();
+    ctx.fill();
+    ctx.beginPath();
+    ctx.arc(12, 12, 4.5, -Math.PI / 4, Math.PI / 4);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.arc(12, 12, 8.5, -Math.PI / 4, Math.PI / 4);
+    ctx.stroke();
   },
 };

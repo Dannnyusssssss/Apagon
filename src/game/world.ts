@@ -52,6 +52,8 @@ export interface WorldSettings {
   godMode: boolean;
   /** Classic round light (easier) instead of the cone. Change it with `setLightMode`. */
   classicLight: boolean;
+  /** Multiplies how fast the beam turns (turn sensitivity, 1 is normal). */
+  turnScale: number;
 }
 
 export interface WorldOptions {
@@ -61,6 +63,8 @@ export interface WorldOptions {
   muted?: boolean;
   godMode?: boolean;
   classicLight?: boolean;
+  /** Turn sensitivity, 1 is normal. */
+  turnScale?: number;
   /** Difficulty of the level; what it leaves out comes from `BALANCE.levels`. */
   tuning?: LevelTuning;
 }
@@ -139,6 +143,7 @@ export function createWorld(roomDef: RoomDef, options: WorldOptions = DEFAULT_OP
       muted: options.muted ?? false,
       godMode: options.godMode ?? false,
       classicLight: options.classicLight ?? false,
+      turnScale: options.turnScale ?? 1,
     },
     events: createEvents(),
     status: 'playing',
@@ -255,7 +260,8 @@ export function stepWorld(world: World, input: StepInput, stepSeconds: number): 
   aimSystem(
     flashlight,
     player,
-    aimAt ? BALANCE.flashlight.pointerTurnRate : BALANCE.flashlight.turnRate,
+    (aimAt ? BALANCE.flashlight.pointerTurnRate : BALANCE.flashlight.turnRate) *
+      world.settings.turnScale,
     stepSeconds,
     aimAt,
     BALANCE.flashlight.pointerDeadZone,

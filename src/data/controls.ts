@@ -1,17 +1,85 @@
-/** Keyboard bindings, by KeyboardEvent.code (layout independent). */
-export const CONTROLS = {
+/** What a key can do in the game. */
+export type Action =
+  'up' | 'down' | 'left' | 'right' | 'toggleFlashlight' | 'interact' | 'pause' | 'mute';
+
+/** In the order the controls window lists them. */
+export const ACTIONS: readonly Action[] = [
+  'up',
+  'down',
+  'left',
+  'right',
+  'toggleFlashlight',
+  'interact',
+  'pause',
+  'mute',
+];
+
+/** Keys per action the player can set: a main key and an alternative. */
+export const KEYS_PER_ACTION = 2;
+
+/**
+ * Keyboard bindings, by KeyboardEvent.code (layout independent). `ShiftLeft` stands for
+ * both Shift keys. The player can change them; these are the defaults.
+ */
+export const DEFAULT_BINDINGS: Readonly<Record<Action, readonly string[]>> = {
   up: ['KeyW', 'ArrowUp'],
   down: ['KeyS', 'ArrowDown'],
   left: ['KeyA', 'ArrowLeft'],
   right: ['KeyD', 'ArrowRight'],
-  toggleFlashlight: ['ShiftLeft', 'ShiftRight', 'KeyF'],
+  toggleFlashlight: ['ShiftLeft', 'KeyF'],
   interact: ['KeyE'],
-  /** Escape keeps its browser meaning too: it pauses and focus moves to the pause menu. */
-  pause: ['Escape', 'KeyP'],
+  pause: ['KeyP'],
   mute: ['KeyM'],
-  /** Only these keys get preventDefault while playing (avoid page scroll). */
-  preventDefault: ['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Space'],
+};
+
+/** Fixed keys, besides the bindings. */
+export const FIXED_KEYS = {
+  /** Escape always pauses and keeps its browser meaning: focus moves to the pause menu. */
+  pause: 'Escape',
+  /** Shows or hides the performance panel. Its browser action (find next) is prevented. */
+  stats: 'F3',
 } as const;
+
+/** Codes that count as another one: both Shift keys are one key in the bindings. */
+export const KEY_ALIASES: Readonly<Record<string, string>> = { ShiftRight: 'ShiftLeft' };
+
+/**
+ * Keys the player may bind. Left out on purpose: Tab and Escape (they leave the game in
+ * the portal), function keys, Ctrl, Alt, Meta and Caps Lock (browser and system
+ * shortcuts), and Slash and Quote (quick find in some browsers).
+ */
+export const BINDABLE_KEYS: ReadonlySet<string> = new Set([
+  ...'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('').map((letter) => `Key${letter}`),
+  ...'0123456789'.split('').map((digit) => `Digit${digit}`),
+  ...'0123456789'.split('').map((digit) => `Numpad${digit}`),
+  'ArrowUp',
+  'ArrowDown',
+  'ArrowLeft',
+  'ArrowRight',
+  'Space',
+  'ShiftLeft',
+  'Enter',
+  'NumpadEnter',
+  'Comma',
+  'Period',
+  'Semicolon',
+  'Minus',
+  'Equal',
+  'BracketLeft',
+  'BracketRight',
+  'Backslash',
+  'IntlBackslash',
+  'Backquote',
+]);
+
+/** Only these keys get preventDefault while playing (avoid page scroll), besides F3. */
+export const PREVENT_DEFAULT_KEYS: readonly string[] = [
+  'ArrowUp',
+  'ArrowDown',
+  'ArrowLeft',
+  'ArrowRight',
+  'Space',
+];
 
 /** The saved choice for the on-screen controls. */
 export type TouchMode = 'auto' | 'always' | 'never';

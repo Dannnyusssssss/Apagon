@@ -3,24 +3,32 @@ export const TEXTS = {
   start: {
     goal: 'Estás a oscuras. Encuentra las llaves y sal antes de que algo te alcance.',
     light: 'Apunta la luz hacia él: lo detiene un rato, pero gasta batería. Busca pilas.',
-    /** Controls shown as key caps: main keys, optional alternative keys, and what they do. */
-    controls: [
-      { keys: ['W', 'A', 'S', 'D'], alt: ['Flechas'], label: 'Moverse' },
-      { keys: ['Shift'], alt: ['F'], label: 'Linterna' },
-      { keys: ['E'], alt: [], label: 'Interactuar' },
-      { keys: ['Esc'], alt: ['P'], label: 'Pausa' },
-      { keys: ['M'], alt: [], label: 'Sonido' },
-      { keys: ['Ratón'], alt: [], label: 'Apuntar la luz' },
-    ],
+    /** Labels of the controls list; the keys come from the current bindings. */
+    controlLabels: {
+      move: 'Moverse',
+      light: 'Linterna',
+      interact: 'Interactuar',
+      pause: 'Pausa',
+      mute: 'Sonido',
+      aim: 'Apuntar la luz',
+    },
+    /** Shown for the arrow keys when they are the alternative of the four directions. */
+    arrows: 'Flechas',
+    mouse: 'Ratón',
     /** Word between main and alternative keys. */
     or: 'o',
     controlsTitle: 'Controles',
-    shiftHint: 'Si Shift abre un aviso del sistema, usa F.',
+    shiftHint: 'Si Shift abre un aviso del sistema, cambia la tecla en Opciones, Controles.',
     /** Short safety notice next to the reduce-flicker option (photosensitivity). */
     lightNotice: 'Contiene oscuridad y cambios suaves de luz. Puedes reducir el parpadeo.',
     continueGame: (level: number): string => `Continuar (nivel ${String(level)})`,
     newGame: 'Nueva partida',
+    options: 'Opciones',
+    help: 'Cómo jugar',
     leave: 'Tab: salir del juego',
+  },
+  help: {
+    title: 'Cómo jugar',
   },
   /** Names and the line shown just before each level, by level id. */
   levels: {
@@ -48,6 +56,86 @@ export const TEXTS = {
   pause: {
     title: 'Pausa',
     resume: 'Continuar',
+  },
+  options: {
+    title: 'Opciones',
+    back: 'Volver',
+    tabsLabel: 'Secciones de opciones',
+    tabs: {
+      access: 'Accesibilidad',
+      sound: 'Sonido',
+      controls: 'Controles',
+      display: 'Pantalla',
+    },
+    accessNote: 'La linterna clásica ilumina en círculo y el enemigo va algo más lento.',
+    music: 'Música',
+    effects: 'Efectos',
+    enemy: 'Enemigo',
+    percent: (value: number): string => `${String(value)} %`,
+    soundNote: 'Todo lo importante que suena también se ve en pantalla.',
+    sensitivity: 'Giro de la luz',
+    sensitivityNote: 'Lo rápido que gira el haz con el teclado, el ratón o el joystick.',
+    keysTitle: 'Teclas',
+    keysHint: 'Elige una tecla y pulsa la nueva. Esc cancela. Esc también pausa siempre.',
+    keyMain: 'principal',
+    keyAlt: 'alternativa',
+    addKey: 'Añadir',
+    waiting: 'Pulsa…',
+    keyButton: (action: string, slot: string, key: string): string =>
+      `${action}, tecla ${slot}: ${key}. Cambiar`,
+    listening: (action: string): string => `Pulsa la nueva tecla para ${action}. Esc cancela.`,
+    assigned: (key: string, action: string): string => `${key}: ${action}.`,
+    swapped: (key: string, action: string, other: string, old: string): string =>
+      `${key}: ${action}. ${other} usa ahora ${old}.`,
+    moved: (key: string, action: string, other: string): string =>
+      `${key}: ${action}. Ya no sirve para ${other}.`,
+    wouldEmpty: (key: string, other: string): string =>
+      `${key} es la única tecla de ${other}. Dale otra antes.`,
+    notBindable: 'Esa tecla no se puede usar. Prueba otra.',
+    cancelled: 'Sin cambios.',
+    restore: 'Restaurar teclas',
+    restored: 'Teclas restauradas.',
+    quality: 'Calidad gráfica',
+    qualities: { low: 'Baja', medium: 'Media', high: 'Alta' },
+    qualityNote: 'Baja dibuja menos píxeles: va más fluido en equipos lentos.',
+    brightness: 'Brillo',
+    brightnessValue: (steps: number): string => (steps === 0 ? 'Normal' : `+${String(steps)}`),
+    brightnessNote: 'Ayuda en pantallas oscuras. Lo que la luz no alcanza sigue a oscuras.',
+    stats: 'Mostrar rendimiento',
+    statsKey: ' (F3)',
+  },
+  /** Names of the actions in the controls window. */
+  actions: {
+    up: 'Arriba',
+    down: 'Abajo',
+    left: 'Izquierda',
+    right: 'Derecha',
+    toggleFlashlight: 'Linterna',
+    interact: 'Interactuar',
+    pause: 'Pausa',
+    mute: 'Sonido',
+  },
+  /** Names of keys that are not a single character. */
+  keys: {
+    Space: 'Espacio',
+    ShiftLeft: 'Shift',
+    Enter: 'Enter',
+    NumpadEnter: 'Enter num.',
+    Escape: 'Esc',
+    ArrowUp: '↑',
+    ArrowDown: '↓',
+    ArrowLeft: '←',
+    ArrowRight: '→',
+    numpad: (digit: string): string => `Num ${digit}`,
+  },
+  stats: {
+    fps: 'FPS',
+    frame: 'Frame',
+    worst: 'Peor',
+    long: 'Frames largos',
+    canvas: 'Lienzo',
+    every: (divisor: number): string =>
+      divisor === 1 ? 'Dibuja cada refresco' : `Dibuja 1 de cada ${String(divisor)} refrescos`,
   },
   settings: {
     reduceFlicker: 'Reducir parpadeo',
@@ -101,12 +189,15 @@ export const TEXTS = {
     batteryEmpty: 'Sin batería',
     keys: 'Llaves ',
     enemyNear: 'Algo se acerca',
-    soundOn: 'Sonido: sí (M)',
-    soundOff: 'Sonido: no (M)',
-    pickKey: 'E: recoger llave',
-    pickBattery: 'E: recoger pila',
-    openDoor: 'E: abrir la puerta',
-    openGate: 'E: abrir la verja',
+    soundOn: 'Sonido: sí',
+    soundOff: 'Sonido: no',
+    /** The key that mutes, next to the sound state; left out when its name is long. */
+    soundKey: (key: string): string => ` (${key})`,
+    /** What the interact key does now: the key name goes first. */
+    pickKey: (key: string): string => `${key}: recoger llave`,
+    pickBattery: (key: string): string => `${key}: recoger pila`,
+    openDoor: (key: string): string => `${key}: abrir la puerta`,
+    openGate: (key: string): string => `${key}: abrir la verja`,
     missingKeys: (count: number): string =>
       count === 1 ? 'Falta 1 llave' : `Faltan ${String(count)} llaves`,
   },

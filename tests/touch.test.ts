@@ -293,7 +293,7 @@ describe('isTooSoonAfterOpening', () => {
 
 describe('promptText', () => {
   it('names the key on the keyboard and only the action with touch controls', () => {
-    expect(promptText('pickKey', 0, 'door', false)).toBe(TEXTS.hud.pickKey);
+    expect(promptText('pickKey', 0, 'door', false)).toBe('E: recoger llave');
     expect(promptText('pickKey', 0, 'door', true)).toBe(TEXTS.touch.prompts.pickKey);
     expect(promptText('pickBattery', 0, 'door', true)).toBe(TEXTS.touch.prompts.pickBattery);
     for (const prompt of Object.values(TEXTS.touch.prompts)) {
@@ -304,7 +304,13 @@ describe('promptText', () => {
   it('names the exit of the level', () => {
     expect(promptText('openDoor', 0, 'door', true)).toBe(TEXTS.touch.prompts.openDoor);
     expect(promptText('openDoor', 0, 'gate', true)).toBe(TEXTS.touch.prompts.openGate);
-    expect(promptText('openDoor', 0, 'gate', false)).toBe(TEXTS.hud.openGate);
+    expect(promptText('openDoor', 0, 'gate', false)).toBe(TEXTS.hud.openGate('E'));
+  });
+
+  it('names the interact key the player chose', () => {
+    expect(promptText('pickBattery', 0, 'door', false, 'Espacio')).toBe('Espacio: recoger pila');
+    expect(promptText('openDoor', 0, 'door', false, 'Q')).toBe('Q: abrir la puerta');
+    expect(promptText('pickKey', 0, 'door', true, 'Q')).toBe(TEXTS.touch.prompts.pickKey);
   });
 
   it('counts the missing keys, and is empty with nothing at hand', () => {

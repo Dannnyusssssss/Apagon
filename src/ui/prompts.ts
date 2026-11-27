@@ -4,22 +4,25 @@ import type { Prompt } from '../game/systems/interact';
 
 /**
  * What the player can do right now, or an empty string. With touch controls it names the
- * action alone, without the key.
+ * action alone; otherwise it starts with `key`, the name of the interact key.
  */
 export function promptText(
   prompt: Prompt,
   missing: number,
   exit: ExitKind,
   touch: boolean,
+  key = 'E',
 ): string {
-  const labels = touch ? TEXTS.touch.prompts : TEXTS.hud;
+  const t = TEXTS.touch.prompts;
+  const k = TEXTS.hud;
   switch (prompt) {
     case 'pickKey':
-      return labels.pickKey;
+      return touch ? t.pickKey : k.pickKey(key);
     case 'pickBattery':
-      return labels.pickBattery;
+      return touch ? t.pickBattery : k.pickBattery(key);
     case 'openDoor':
-      return exit === 'gate' ? labels.openGate : labels.openDoor;
+      if (exit === 'gate') return touch ? t.openGate : k.openGate(key);
+      return touch ? t.openDoor : k.openDoor(key);
     case 'doorLocked':
       return TEXTS.hud.missingKeys(missing);
     case 'none':

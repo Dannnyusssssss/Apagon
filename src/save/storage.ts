@@ -1,6 +1,8 @@
+import { copyBindings, defaultBindings, parseBindings, type Bindings } from '../core/bindings';
 import { TOUCH_MODES, type TouchMode } from '../data/controls';
 import { LEVEL_COUNT } from '../data/levels';
 import { STORAGE_PREFIX } from '../data/meta';
+import { isQuality, OPTIONS, rangeValue, type Quality } from '../data/options';
 
 /** The only key the game writes. The portal clears data by this prefix. */
 export const SAVE_KEY = `${STORAGE_PREFIX}v1`;
@@ -21,6 +23,20 @@ export interface SaveData {
   touchControls: TouchMode;
   /** On-screen buttons on the left and the moving stick on the right. Missing: off. */
   leftHanded: boolean;
+  /** Keys of each action. Missing or invalid: the default keys. */
+  keyBindings: Bindings;
+  /** Percent of each sound channel. Missing: 100. */
+  musicVolume: number;
+  effectsVolume: number;
+  enemyVolume: number;
+  /** Percent of the normal turning speed of the beam. Missing: 100. */
+  turnSensitivity: number;
+  /** Canvas density limits. Missing: high, as before. */
+  quality: Quality;
+  /** Steps above the normal brightness. Missing: 0. */
+  brightness: number;
+  /** Performance panel (F3). Missing: hidden. */
+  showStats: boolean;
   /** Highest level that can be continued from (1 is the first). */
   unlockedLevel: number;
   /** Best time in seconds of each level, in play order; null if not won yet. */
@@ -43,6 +59,14 @@ export function defaultSave(): SaveData {
     mouseAim: true,
     touchControls: 'auto',
     leftHanded: false,
+    keyBindings: defaultBindings(),
+    musicVolume: OPTIONS.volume.default,
+    effectsVolume: OPTIONS.volume.default,
+    enemyVolume: OPTIONS.volume.default,
+    turnSensitivity: OPTIONS.turnSensitivity.default,
+    quality: OPTIONS.defaultQuality,
+    brightness: OPTIONS.brightness.default,
+    showStats: false,
     unlockedLevel: 1,
     bestLevelTimes: Array.from({ length: LEVEL_COUNT }, () => null),
     bestFullRunSeconds: null,
@@ -84,6 +108,7 @@ export function parseSave(raw: string | null): SaveData {
   if (isRecord(settings) && typeof settings['leftHanded'] === 'boolean') {
     data.leftHanded = settings['leftHanded'];
   }
+  if (isRecord(settings)) readOptions(settings, data);
 
   const unlocked = parsed['unlockedLevel'];
   if (
@@ -113,14 +138,40 @@ export function parseSave(raw: string | null): SaveData {
   return data;
 }
 
+/** The settings added with the options window, each one checked on its own. */
+function readOptions(settings: Record<string, unknown>, data: SaveData): void {
+  if (Object.hasOwn(settings, 'keys')) data.keyBindings = parseBindings(settings['keys']);
+  data.musicVolume = rangeValue(settings['musicVolume'], OPTIONS.volume) ?? data.musicVolume;
+  data.effectsVolume = rangeValue(settings['effectsVolume'], OPTIONS.volume) ?? data.effectsVolume;
+  data.enemyVolume = rangeValue(settings['enemyVolume'], OPTIONS.volume) ?? data.enemyVolume;
+  data.turnSensitivity =
+    rangeValue(settings['turnSensitivity'], OPTIONS.turnSensitivity) ?? data.turnSensitivity;
+  data.brightness = rangeValue(settings['brightness'], OPTIONS.brightness) ?? data.brightness;
+  const quality = settings['quality'];
+  if (isQuality(quality)) data.quality = quality;
+  if (typeof settings['showStats'] === 'boolean') data.showStats = settings['showStats'];
+}
+
 export function serializeSave(data: SaveData): string {
-  const settings: Record<string, boolean | string> = {};
+  const settings: Record<string, unknown> = {};
   if (data.reduceFlicker !== null) settings['reduceFlicker'] = data.reduceFlicker;
   settings['muted'] = data.muted;
   settings['classicLight'] = data.classicLight;
   settings['mouseAim'] = data.mouseAim;
   settings['touchControls'] = data.touchControls;
   settings['leftHanded'] = data.leftHanded;
+  // Read back through the same checks, so only valid values are ever written.
+  settings['keys'] = parseBindings(copyBindings(data.keyBindings));
+  settings['musicVolume'] = rangeValue(data.musicVolume, OPTIONS.volume) ?? OPTIONS.volume.default;
+  settings['effectsVolume'] =
+    rangeValue(data.effectsVolume, OPTIONS.volume) ?? OPTIONS.volume.default;
+  settings['enemyVolume'] = rangeValue(data.enemyVolume, OPTIONS.volume) ?? OPTIONS.volume.default;
+  settings['turnSensitivity'] =
+    rangeValue(data.turnSensitivity, OPTIONS.turnSensitivity) ?? OPTIONS.turnSensitivity.default;
+  settings['quality'] = isQuality(data.quality) ? data.quality : OPTIONS.defaultQuality;
+  settings['brightness'] =
+    rangeValue(data.brightness, OPTIONS.brightness) ?? OPTIONS.brightness.default;
+  settings['showStats'] = data.showStats;
   return JSON.stringify({
     version: SAVE_VERSION,
     settings,
@@ -160,6 +211,7 @@ export function writeSave(storage: StorageLike | null, data: SaveData): boolean 
 export function mergeSave(stored: SaveData, mine: SaveData): SaveData {
   return {
     ...mine,
+    keyBindings: copyBindings(mine.keyBindings),
     unlockedLevel: Math.max(stored.unlockedLevel, mine.unlockedLevel),
     bestLevelTimes: mine.bestLevelTimes.map((time, i) =>
       bestOf(stored.bestLevelTimes[i] ?? null, time),

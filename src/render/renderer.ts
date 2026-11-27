@@ -3,6 +3,7 @@ import { lerp, lerpAngle, type Vec2 } from '../core/math';
 import { renderScale } from '../core/resolution';
 import { BALANCE } from '../data/balance';
 import { levelAt, type LevelDef, type LevelPalette } from '../data/levels';
+import { darknessAlphaFor, OPTIONS, qualityView, type Quality } from '../data/options';
 import { isBatteryLow } from '../game/battery';
 import { hasAllKeys, isAvailable, type Item } from '../game/items';
 import {
@@ -136,6 +137,7 @@ export class Renderer {
   private viewBottom = 0;
   private cssWidth = 0;
   private cssHeight = 0;
+  private viewLimits = qualityView(OPTIONS.defaultQuality);
 
   constructor(private readonly canvas: HTMLCanvasElement) {
     const ctx = canvas.getContext('2d', { alpha: false });
@@ -163,6 +165,22 @@ export class Renderer {
     this.hud.setInsets(insets);
   }
 
+  /** Graphics quality: how many canvas pixels at most. Applies at once. */
+  setQuality(quality: Quality): void {
+    this.viewLimits = qualityView(quality);
+    this.resize();
+  }
+
+  /** Brightness setting: steps above normal (see `darknessAlphaFor`). */
+  setBrightness(steps: number): void {
+    this.lighting.setDarknessAlpha(darknessAlphaFor(steps));
+  }
+
+  /** Key names the HUD shows next to the sound state and the action prompt. */
+  setKeyLabels(interact: string, mute: string): void {
+    this.hud.setKeyLabels(interact, mute);
+  }
+
   /** Matches the backing store to the element size and the capped pixel density. */
   resize(): void {
     this.cssWidth = Math.max(1, this.canvas.clientWidth);
@@ -171,8 +189,8 @@ export class Renderer {
       window.devicePixelRatio,
       this.cssWidth,
       this.cssHeight,
-      BALANCE.view.maxRenderScale,
-      BALANCE.view.maxRenderPixels,
+      this.viewLimits.maxRenderScale,
+      this.viewLimits.maxRenderPixels,
     );
     const w = Math.round(this.cssWidth * this.dpr);
     const h = Math.round(this.cssHeight * this.dpr);

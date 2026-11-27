@@ -31,6 +31,8 @@ const MARGIN = 12;
 /** The full sound indicator, with its text. */
 const SOUND_WIDTH = 170;
 const SOUND_HEIGHT = 30;
+/** Longest key name that still fits next to the sound state. */
+const MAX_SOUND_KEY = 3;
 
 /**
  * Screen-space HUD: battery, keys, "enemy near" and the E prompt.
@@ -56,6 +58,19 @@ export class Hud {
   private promptMissing = -1;
   private promptText = '';
   private promptWidth = 0;
+  private interactKey = 'E';
+  private soundOnText: string = TEXTS.hud.soundOn;
+  private soundOffText: string = TEXTS.hud.soundOff;
+
+  /** Names of the interact and mute keys, as the player set them. */
+  setKeyLabels(interact: string, mute: string): void {
+    this.interactKey = interact;
+    // A long name would not fit the sound indicator: then it shows the state alone.
+    const suffix = mute.length <= MAX_SOUND_KEY ? TEXTS.hud.soundKey(mute) : '';
+    this.soundOnText = TEXTS.hud.soundOn + suffix;
+    this.soundOffText = TEXTS.hud.soundOff + suffix;
+    this.promptMissing = -1;
+  }
 
   /** The prompt names the exit of the current level. */
   setExit(exit: ExitKind): void {
@@ -250,7 +265,7 @@ export class Hud {
     }
     ctx.stroke();
 
-    if (!touch) ctx.fillText(muted ? TEXTS.hud.soundOff : TEXTS.hud.soundOn, ix + 30 * u, cy);
+    if (!touch) ctx.fillText(muted ? this.soundOffText : this.soundOnText, ix + 30 * u, cy);
   }
 
   private drawPrompt(
@@ -309,7 +324,7 @@ export class Hud {
     if (prompt === this.promptKind && missing === this.promptMissing) return;
     this.promptKind = prompt;
     this.promptMissing = missing;
-    this.promptText = promptText(prompt, missing, this.exit, this.touch);
+    this.promptText = promptText(prompt, missing, this.exit, this.touch, this.interactKey);
     this.promptWidth = ctx.measureText(this.promptText).width;
   }
 

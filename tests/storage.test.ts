@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { defaultBindings } from '../src/core/bindings';
 import { LEVEL_COUNT } from '../src/data/levels';
 import {
   defaultSave,
@@ -64,6 +65,14 @@ describe('parseSave', () => {
       mouseAim: true,
       touchControls: 'auto',
       leftHanded: false,
+      keyBindings: defaultBindings(),
+      musicVolume: 100,
+      effectsVolume: 100,
+      enemyVolume: 100,
+      turnSensitivity: 100,
+      quality: 'high',
+      brightness: 0,
+      showStats: false,
       unlockedLevel: 2,
       bestLevelTimes: [42.5, 80, null],
       bestFullRunSeconds: 300,
@@ -437,5 +446,125 @@ describe('two open tabs (mergeSave)', () => {
     const mine: SaveData = { ...defaultSave(), unlockedLevel: 2, bestLevelTimes: times(33) };
     expect(mergeSave(loadSave(new MemoryStorage()), mine)).toEqual(mine);
     expect(mergeSave(loadSave(throwing), mine)).toEqual(mine);
+  });
+});
+
+describe('options window settings', () => {
+  const withSettings = (settings: unknown): SaveData =>
+    parseSave(JSON.stringify({ version: 1, settings }));
+
+  it('round-trips every new setting', () => {
+    const keyBindings = defaultBindings();
+    keyBindings.interact = ['KeyQ', 'Space'];
+    const data = save({
+      keyBindings,
+      musicVolume: 40,
+      effectsVolume: 0,
+      enemyVolume: 70,
+      turnSensitivity: 130,
+      quality: 'low',
+      brightness: 3,
+      showStats: true,
+    });
+    expect(parseSave(serializeSave(data))).toEqual(data);
+  });
+
+  it('keeps older saves working with the defaults', () => {
+    const data = withSettings({ muted: true });
+    expect(data.keyBindings).toEqual(defaultBindings());
+    expect(data.musicVolume).toBe(100);
+    expect(data.turnSensitivity).toBe(100);
+    expect(data.quality).toBe('high');
+    expect(data.brightness).toBe(0);
+    expect(data.showStats).toBe(false);
+  });
+
+  it('accepts only whole numbers on each slider', () => {
+    for (const value of [-10, 160, 55, 12.5, NaN, '50', null, true, [50], { value: 50 }]) {
+      const data = withSettings({
+        musicVolume: value,
+        effectsVolume: value,
+        enemyVolume: value,
+        turnSensitivity: value,
+        brightness: value,
+      });
+      expect(data.musicVolume).toBe(100);
+      expect(data.effectsVolume).toBe(100);
+      expect(data.enemyVolume).toBe(100);
+      expect(data.turnSensitivity).toBe(100);
+      expect(data.brightness).toBe(0);
+    }
+    expect(withSettings({ turnSensitivity: 40 }).turnSensitivity).toBe(100);
+    expect(withSettings({ turnSensitivity: 160 }).turnSensitivity).toBe(100);
+    expect(withSettings({ turnSensitivity: 50 }).turnSensitivity).toBe(50);
+    expect(withSettings({ brightness: 6 }).brightness).toBe(0);
+    expect(withSettings({ brightness: 5 }).brightness).toBe(5);
+    expect(withSettings({ enemyVolume: 0 }).enemyVolume).toBe(0);
+  });
+
+  it('accepts only known qualities and a boolean for the stats panel', () => {
+    for (const quality of ['ultra', 'HIGH', '', 1, null, ['low']]) {
+      expect(withSettings({ quality }).quality).toBe('high');
+    }
+    expect(withSettings({ quality: 'medium' }).quality).toBe('medium');
+    for (const showStats of ['true', 1, null, {}]) {
+      expect(withSettings({ showStats }).showStats).toBe(false);
+    }
+  });
+
+  it('drops hostile key bindings', () => {
+    const defaults = defaultBindings();
+    const hostile: unknown[] = [
+      'KeyW',
+      ['KeyW'],
+      null,
+      { up: 'KeyW' },
+      { up: [] },
+      { up: ['KeyW', 'KeyX', 'KeyY'] },
+      { up: ['Tab'] },
+      { up: ['Escape'] },
+      { up: ['F5'] },
+      { up: ['ControlLeft'] },
+      { up: ['<img src=x>'] },
+      { up: ['KeyW'.repeat(1000)] },
+      { up: [42] },
+      { up: ['KeyQ', 'KeyQ'] },
+    ];
+    for (const keys of hostile) {
+      expect(withSettings({ keys }).keyBindings).toEqual(defaults);
+    }
+  });
+
+  it('ignores unknown actions and prototype keys in the bindings', () => {
+    const raw =
+      '{"version":1,"settings":{"keys":{"__proto__":{"up":["KeyQ"]},"fly":["KeyZ"],"constructor":["KeyX"]}}}';
+    const data = parseSave(raw);
+    expect(data.keyBindings).toEqual(defaultBindings());
+    expect(Object.keys(data.keyBindings)).not.toContain('fly');
+    expect(({} as Record<string, unknown>)['up']).toBeUndefined();
+  });
+
+  it('falls back to the defaults when two actions share a key', () => {
+    const data = withSettings({ keys: { up: ['KeyE'] } });
+    expect(data.keyBindings).toEqual(defaultBindings());
+  });
+
+  it('never writes an invalid binding, even from a broken value in memory', () => {
+    const broken = defaultBindings();
+    broken.up = ['Tab'];
+    const written = JSON.parse(serializeSave(save({ keyBindings: broken }))) as {
+      settings: { keys: unknown };
+    };
+    expect(written.settings.keys).toEqual(defaultBindings());
+  });
+
+  it('keeps the bindings of this tab when merging with another one', () => {
+    const mine = defaultBindings();
+    mine.mute = ['KeyN'];
+    const merged = mergeSave(save({ unlockedLevel: 3 }), save({ keyBindings: mine }));
+    expect(merged.keyBindings.mute).toEqual(['KeyN']);
+    expect(merged.unlockedLevel).toBe(3);
+    mine.mute.push('KeyB');
+    expect(merged.keyBindings.mute).toEqual(['KeyN']);
   });
 });

@@ -1,0 +1,329 @@
+/* Menus as windows: short start and pause panels, and a tabbed options window. */
+
+/* Buttons side by side, wrapping on narrow screens. */
+.screen__actions {
+  gap: 0.6rem 0.9rem;
+}
+
+.screen__actions .screen__button {
+  margin-top: 0;
+}
+
+/* Smaller buttons for what opens a window or goes back. */
+.screen__button--secondary {
+  min-height: 44px;
+  padding: 0.5rem 1.3rem;
+  border-width: 1px;
+  font-size: 0.95rem;
+  letter-spacing: 0.1em;
+}
+
+/* The light notice with its switch, in a quiet frame. */
+.screen__notice {
+  flex-direction: column;
+  align-items: center;
+  gap: 0.45rem;
+  width: 100%;
+  padding: 0.6rem 0.9rem;
+  border: 1px dashed rgba(255, 215, 140, 0.25);
+  border-radius: 0.3rem;
+  background: rgba(0, 0, 0, 0.3);
+}
+
+.screen--options .screen__panel {
+  width: min(44rem, 100%);
+}
+
+/* Tabs: a row of switches for the pages of the window. */
+.tabs {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  width: 100%;
+  border-bottom: 1px solid var(--panel-edge);
+}
+
+.tabs__tab {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.45rem;
+  min-height: 44px;
+  padding: 0.5rem 0.4rem;
+  border: 1px solid transparent;
+  border-bottom: 0;
+  border-radius: 0.3rem 0.3rem 0 0;
+  background: transparent;
+  color: var(--muted);
+  font:
+    600 0.92rem/1.1 Georgia,
+    'Times New Roman',
+    serif;
+  letter-spacing: 0.06em;
+  cursor: pointer;
+}
+
+.tabs__tab:hover {
+  color: var(--ink);
+}
+
+.tabs__tab--selected {
+  border-color: var(--panel-edge);
+  background: linear-gradient(180deg, rgba(90, 71, 24, 0.55), rgba(20, 16, 10, 0.2));
+  color: var(--warm);
+  /* Not only color: the selected tab is also underlined. */
+  text-decoration: underline;
+  text-underline-offset: 0.25em;
+}
+
+.tabs__tab:focus-visible {
+  outline: 3px solid var(--ink);
+  outline-offset: -3px;
+}
+
+.tabs__page {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.75rem;
+  width: 100%;
+  min-height: 15rem;
+  padding: 0.4rem 0 0.2rem;
+}
+
+.tabs__page[hidden] {
+  display: none;
+}
+
+/* Switches in a column, each one starting at the same edge. */
+.tabs__page > .screen__toggle {
+  justify-content: flex-start;
+  width: min(26rem, 100%);
+  min-height: 40px;
+  text-align: left;
+}
+
+/* Sliders: label, track and value on one line. */
+.option-slider {
+  display: grid;
+  grid-template-columns: minmax(8rem, 12rem) minmax(8rem, 1fr) 4.5rem;
+  align-items: center;
+  gap: 0.75rem;
+  width: 100%;
+  min-height: 44px;
+  color: var(--ink);
+  text-align: left;
+}
+
+.option-slider__label {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.55rem;
+  font-size: 0.98rem;
+}
+
+.option-slider__input {
+  width: 100%;
+  height: 1.6rem;
+  margin: 0;
+  accent-color: var(--warm);
+  cursor: pointer;
+}
+
+.option-slider__input:focus-visible {
+  outline: 3px solid var(--ink);
+  outline-offset: 3px;
+}
+
+.option-slider__value {
+  font:
+    600 0.9rem/1 ui-monospace,
+    'Cascadia Mono',
+    Consolas,
+    monospace;
+  color: var(--warm);
+  text-align: right;
+}
+
+/* Key bindings: action, main key, alternative key. */
+.keys {
+  width: 100%;
+}
+
+.keys__title {
+  margin: 0.3rem 0 0.2rem;
+  font-family: Georgia, 'Times New Roman', serif;
+  font-size: 0.85rem;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.keys__grid {
+  display: grid;
+  grid-template-columns: minmax(6rem, 1fr) repeat(2, minmax(4.5rem, 7rem));
+  align-items: center;
+  gap: 0.3rem 0.6rem;
+  width: min(30rem, 100%);
+  margin: 0.5rem auto 0;
+  text-align: left;
+}
+
+.keys__action {
+  font-size: 0.95rem;
+  color: #e6dcc8;
+}
+
+.keys__key {
+  min-height: 36px;
+  padding: 0.2rem 0.5rem;
+  border: 1px solid rgba(255, 230, 190, 0.45);
+  border-bottom-width: 3px;
+  border-radius: 0.3rem;
+  background: linear-gradient(180deg, #2b261e, #17140f);
+  color: var(--ink);
+  font:
+    600 0.9rem/1.2 ui-monospace,
+    'Cascadia Mono',
+    Consolas,
+    monospace;
+  cursor: pointer;
+}
+
+.keys__key:hover {
+  border-color: var(--warm);
+}
+
+.keys__key:focus-visible {
+  outline: 3px solid var(--ink);
+  outline-offset: 2px;
+}
+
+.keys__key--empty {
+  border-style: dashed;
+  color: var(--muted);
+  font-weight: 400;
+}
+
+/* Waiting for a key: warm fill and a different border, not only a color. */
+.keys__key--listening {
+  border-style: double;
+  border-width: 3px;
+  border-color: var(--warm);
+  background: #5a4718;
+  color: var(--warm);
+}
+
+.keys__status {
+  min-height: 1.4em;
+  margin: 0.6rem 0 0.3rem;
+  font-size: 0.92rem;
+  color: var(--warm);
+}
+
+.keys__restore {
+  min-height: 44px;
+  padding: 0.4rem 1rem;
+  border: 1px solid rgba(255, 230, 190, 0.5);
+  border-radius: 0.3rem;
+  background: transparent;
+  color: var(--ink);
+  font-size: 0.92rem;
+  cursor: pointer;
+}
+
+.keys__restore:hover,
+.keys__restore:focus-visible {
+  border-color: var(--warm);
+  color: var(--warm);
+}
+
+.keys__restore:focus-visible {
+  outline: 3px solid var(--ink);
+  outline-offset: 2px;
+}
+
+/* Narrow screens: tabs in two rows, sliders stacked. */
+@media (max-width: 600px) {
+  .tabs {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .tabs__tab {
+    border-radius: 0.3rem;
+  }
+
+  .option-slider {
+    grid-template-columns: 1fr 4rem;
+  }
+
+  .option-slider__label {
+    grid-column: 1 / -1;
+  }
+
+  .keys__grid {
+    grid-template-columns: minmax(5rem, 1fr) repeat(2, minmax(4.5rem, 1fr));
+  }
+}
+
+/* Short windows: the pages need less height. */
+@media (max-height: 760px) {
+  .tabs__page {
+    gap: 0.5rem;
+    min-height: 0;
+  }
+
+  .keys__key {
+    min-height: 32px;
+  }
+
+  .touch-capable .keys__key {
+    min-height: 44px;
+  }
+}
+
+/* A phone on its side: the windows drop the big icon so the pages fit. */
+@media (max-height: 520px) {
+  .screen--options .screen__panel > .icon,
+  .screen--help .screen__panel > .icon {
+    display: none;
+  }
+
+  .screen--options .screen__title,
+  .screen--help .screen__title {
+    font-size: 1.6rem;
+  }
+}
+
+/* Players' performance panel (F3). */
+.stats-overlay {
+  position: absolute;
+  top: calc(0.5rem + env(safe-area-inset-top));
+  right: calc(0.5rem + env(safe-area-inset-right));
+  margin: 0;
+  padding: 0.45rem 0.7rem;
+  border: 1px solid rgba(255, 230, 190, 0.3);
+  border-radius: 0.3rem;
+  background: rgba(0, 0, 0, 0.72);
+  color: #f2ead8;
+  font:
+    12px/1.45 ui-monospace,
+    'Cascadia Mono',
+    Consolas,
+    monospace;
+  pointer-events: none;
+  white-space: pre;
+}
+
+.stats-overlay[hidden] {
+  display: none;
+}
+
+/* Below the on-screen pause button. */
+.touch-ui .stats-overlay {
+  top: calc(72px + env(safe-area-inset-top));
+}
+
+.reduce-motion .tabs__tab,
+.reduce-motion .keys__key {
+  transition: none;
+}

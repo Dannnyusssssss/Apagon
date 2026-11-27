@@ -2,7 +2,7 @@ import type { Joystick } from '../core/joystick';
 import type { StickRole, TouchSticks } from '../core/touch';
 import { TEXTS } from '../data/texts';
 import { createIcon, type IconKind } from './icons';
-import { element } from './screens';
+import { element } from './screen';
 
 export interface TouchControlsOptions {
   readonly sticks: TouchSticks;

@@ -6,7 +6,6 @@ import {
   createWarmGlowSprite,
 } from './sprites';
 
-const DARKNESS_COLOR = `rgba(0, 0, 0, ${String(BALANCE.lighting.darknessAlpha)})`;
 const CONE_EDGES = {
   inner: BALANCE.flashlight.coneSoftInner,
   outer: BALANCE.flashlight.coneSoftOuter,
@@ -53,12 +52,18 @@ export class Lighting {
   private readonly glow = createWarmGlowSprite();
   private readonly coneMask = createConeMaskSprite(CONE_EDGES);
   private readonly coneGlow = createConeGlowSprite(CONE_EDGES);
+  private darknessColor = darknessColor(BALANCE.lighting.darknessAlpha);
 
   constructor() {
     this.layer = document.createElement('canvas');
     const ctx = this.layer.getContext('2d');
     if (!ctx) throw new Error('2D context not available');
     this.layerCtx = ctx;
+  }
+
+  /** Opacity of the darkness where no light reaches (the brightness setting). */
+  setDarknessAlpha(alpha: number): void {
+    this.darknessColor = darknessColor(alpha);
   }
 
   resize(widthPx: number, heightPx: number): void {
@@ -79,7 +84,7 @@ export class Lighting {
     // Replaces every pixel, so the layer does not have to be cleared first.
     ctx.globalCompositeOperation = 'copy';
     ctx.globalAlpha = 1;
-    ctx.fillStyle = DARKNESS_COLOR;
+    ctx.fillStyle = this.darknessColor;
     ctx.fillRect(0, 0, this.layer.width, this.layer.height);
 
     for (let i = 0; i < count; i++) {
@@ -144,4 +149,8 @@ function tracePolygon(ctx: CanvasRenderingContext2D, polygon: Float32Array): voi
     else ctx.lineTo(x, y);
   }
   ctx.closePath();
+}
+
+function darknessColor(alpha: number): string {
+  return `rgba(0, 0, 0, ${String(alpha)})`;
 }

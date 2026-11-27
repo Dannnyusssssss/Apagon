@@ -259,6 +259,12 @@ export const BALANCE = {
     maxRenderScale: 1.5,
     /** Canvas pixels in total, at most, for large windows at any density. */
     maxRenderPixels: 3_200_000,
+    /** The same two limits for each graphics quality; "high" is the normal one above. */
+    quality: {
+      low: { maxRenderScale: 1, maxRenderPixels: 1_300_000 },
+      medium: { maxRenderScale: 1.25, maxRenderPixels: 2_200_000 },
+      high: { maxRenderScale: 1.5, maxRenderPixels: 3_200_000 },
+    },
   },
   debug: {
     /** A frame longer than this counts as a stall in the debug panel. */

@@ -1,41 +1,23 @@
 import './style.css';
-import {
-  createCueOutput,
-  createCueState,
-  lowBatteryLevel,
-  resetCues,
-  updateCues,
-} from './audio/cues';
-import { createMusicOutput, createMusicState, resetMusic, updateMusic } from './audio/music';
+import './options.css';
+import { Settings } from './app/settings';
+import { TouchUi } from './app/touchUi';
+import { GameAudio } from './audio/gameAudio';
 import { Sfx } from './audio/sfx';
-import {
-  createEnemyAudioOutput,
-  createEnemyAudioState,
-  resetEnemyAudio,
-  updateEnemyAudio,
-  type EnemyAudioConfig,
-} from './audio/spatial';
 import { parseDebugParams, recordsAllowed } from './core/debugParams';
 import { FramePacer } from './core/framePacer';
 import { attachKeyboard, InputState } from './core/input';
 import { attachPointer, PointerAim } from './core/pointer';
-import { touchControlsVisible, TouchSticks } from './core/touch';
+import { TouchSticks } from './core/touch';
 import { FixedStepClock, GameLoop } from './core/loop';
 import type { Vec2 } from './core/math';
 import { BALANCE } from './data/balance';
-import { TOUCH, type TouchMode } from './data/controls';
+import { TOUCH } from './data/controls';
 import { levelAt, LEVEL_COUNT } from './data/levels';
 import { TEXTS } from './data/texts';
 import { clearEvents } from './game/events';
 import { missingKeys } from './game/items';
-import {
-  createLevelWorld,
-  resetWorld,
-  setLightMode,
-  stepWorld,
-  type StepInput,
-  type World,
-} from './game/world';
+import { createLevelWorld, resetWorld, stepWorld, type StepInput, type World } from './game/world';
 import { Renderer } from './render/renderer';
 import {
   addAttemptTime,
@@ -46,32 +28,33 @@ import {
   recordLevelWin,
   type RunProgress,
 } from './save/progress';
-import { getBrowserStorage, loadSave, mergeSave, writeSave } from './save/storage';
+import { getBrowserStorage, loadSave } from './save/storage';
 import { DebugOverlay } from './ui/debugOverlay';
+import { loadKeyboardLayout } from './ui/keyNames';
 import { promptText } from './ui/prompts';
 import { SafeAreaProbe, type SafeInsets } from './ui/safeArea';
 import { Screens } from './ui/screens';
+import { StatsOverlay } from './ui/statsOverlay';
 import { TouchControls } from './ui/touchControls';
 
 const canvas = document.querySelector<HTMLCanvasElement>('#game');
 const container = document.querySelector<HTMLElement>('#app');
 if (!canvas || !container) throw new Error('Game canvas not found');
 const gameCanvas: HTMLCanvasElement = canvas;
+const app: HTMLElement = container;
 
 const storage = getBrowserStorage();
 const save = loadSave(storage);
 const prefersReducedMotion =
   typeof window.matchMedia === 'function' &&
   window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-/** Stays null until the player picks it, so the system preference keeps applying. */
-let chosenReduceFlicker = save.reduceFlicker;
-let mouseAim = save.mouseAim;
-let touchMode: TouchMode = save.touchControls;
-let leftHanded = save.leftHanded;
+const settings = new Settings(save, storage, prefersReducedMotion);
 
 // Debug options are read once; without them nothing extra is created (see docs/DEBUG.md).
 const debugParams = parseDebugParams(window.location.search);
 const debugOverlay = debugParams.debug ? new DebugOverlay(container, gameCanvas) : null;
+/** The players' performance panel, created the first time it is shown. */
+let statsOverlay: StatsOverlay | null = null;
 
 // The seed only picks among the fixed enemy starts and item spots of each map.
 const seed = debugParams.seed ?? Date.now() >>> 0;
@@ -84,52 +67,23 @@ function newRun(): RunProgress {
   return debugParams.level === null ? newGameRun(recording) : debugRun(debugParams.level);
 }
 
-/** Matches a query without failing where it is not available. */
-function mediaMatches(query: string): boolean {
-  return typeof window.matchMedia === 'function' && window.matchMedia(query).matches;
-}
-
-const coarsePointer = mediaMatches('(pointer: coarse)');
-/** Set by a real touch too: on a laptop with a touch screen the main pointer is the mouse. */
-let touchDetected = coarsePointer;
-/** The touch settings show once they mean something, so a mouse-only menu stays as it was. */
-let touchCapable = coarsePointer || debugParams.touch || touchMode !== 'auto';
+const touchUi = new TouchUi(save.touchControls, debugParams.touch);
 
 let run = newRun();
-let world = buildWorld(run.levelIndex, {
-  reduceFlicker: chosenReduceFlicker ?? prefersReducedMotion,
-  muted: save.muted,
-  classicLight: save.classicLight,
-});
+let world = buildWorld(run.levelIndex);
 
-interface CarriedSettings {
-  readonly reduceFlicker: boolean;
-  readonly muted: boolean;
-  readonly classicLight: boolean;
-}
-
-function buildWorld(levelIndex: number, settings: CarriedSettings): World {
+/** A new world for a level, with the player's current settings. */
+function buildWorld(levelIndex: number): World {
   const visit = debugParams.seed === null ? worldsLoaded++ : 0;
   return createLevelWorld(levelAt(levelIndex), {
-    ...settings,
+    ...settings.worldInit(),
     seed: (seed + Math.imul(levelIndex + 1, 0x9e3779b1) + Math.imul(visit, 0x85ebca6b)) >>> 0,
     godMode: debugParams.god,
   });
 }
 
 const sfx = new Sfx();
-sfx.setMuted(world.settings.muted);
-const cueState = createCueState();
-const cues = createCueOutput();
-// The music has its own generator, so it never changes the gameplay sequence.
-const musicState = createMusicState(seed ^ 0x9e3779b9);
-const musicOut = createMusicOutput();
-const enemyAudioConfig: EnemyAudioConfig = {
-  ...BALANCE.enemyAudio,
-  fastRatio: BALANCE.enemy.darkSpeedMultiplier,
-};
-const enemyAudioState = createEnemyAudioState();
-const enemyAudio = createEnemyAudioOutput();
+const gameAudio = new GameAudio(sfx, seed ^ 0x9e3779b9);
 const input = new InputState();
 const pointer = new PointerAim();
 const sticks = new TouchSticks();
@@ -146,7 +100,7 @@ let redraw = true;
 const touchControls = new TouchControls(container, gameCanvas, {
   sticks,
   acceptMouse: debugParams.touch,
-  isActive: () => state === 'playing' && showsTouchControls(),
+  isActive: () => state === 'playing' && touchUi.showsControls(),
   // The classic light has no direction to aim.
   isAimEnabled: () => !world.settings.classicLight,
   onToggleLight: () => input.requestToggle(),
@@ -156,6 +110,7 @@ const touchControls = new TouchControls(container, gameCanvas, {
 });
 
 const screens = new Screens(container, {
+  ...settings.handlers,
   onContinue: () => {
     run = debugParams.level === null ? continueRun(save.unlockedLevel, recording) : newRun();
     loadLevel();
@@ -173,58 +128,34 @@ const screens = new Screens(container, {
   },
   onResume: resume,
   onRetry: startRun,
-  onReduceFlicker: (checked) => {
-    world.settings.reduceFlicker = checked;
-    applyReduceMotion(checked);
-    chosenReduceFlicker = checked;
-    screens.setReduceFlicker(checked);
-    persist();
-  },
-  onMute: setMuted,
-  onClassicLight: (checked) => {
-    // Applies at once, even from the pause menu: shape and difficulty.
-    setLightMode(world, checked);
-    screens.setClassicLight(checked);
-    updateCursor();
-    redraw = true;
-    persist();
-  },
-  onMouseAim: (checked) => {
-    mouseAim = checked;
-    screens.setMouseAim(checked);
-    updateCursor();
-    persist();
-  },
-  onLeftHanded: (checked) => {
-    leftHanded = checked;
-    screens.setLeftHanded(checked);
-    touchControls.setLeftHanded(checked);
-    persist();
-  },
-  onTouchMode: (mode) => {
-    touchMode = mode;
-    screens.setTouchMode(mode);
-    applyTouchUi();
-    persist();
-  },
 });
-screens.setReduceFlicker(world.settings.reduceFlicker);
-applyReduceMotion(world.settings.reduceFlicker);
-screens.setMuted(world.settings.muted);
-screens.setClassicLight(world.settings.classicLight);
-screens.setMouseAim(mouseAim);
-screens.setLeftHanded(leftHanded);
-screens.setTouchMode(touchMode);
-touchControls.setLeftHanded(leftHanded);
-updateCursor();
-applyTouchUi();
+settings.attach({
+  canvas: gameCanvas,
+  sfx,
+  input,
+  renderer,
+  touchUi,
+  touchControls,
+  world: () => world,
+  redraw: () => {
+    redraw = true;
+  },
+  layoutChanged: applyTouchUi,
+  showStats,
+  changed: (values) => screens.update(values),
+});
+void loadKeyboardLayout().then((layout) => {
+  settings.setLayout(layout);
+  screens.setLayout(layout);
+  redraw = true;
+});
 screens.showStart(false, canContinue(save) ? save.unlockedLevel : null);
 
 /** Builds the world of the current level, keeping the player's settings. */
 function loadLevel(): void {
-  const { reduceFlicker, muted, classicLight } = world.settings;
-  world = buildWorld(run.levelIndex, { reduceFlicker, muted, classicLight });
+  world = buildWorld(run.levelIndex);
   renderer.setLevel(levelAt(run.levelIndex));
+  settings.updateCursor();
   redraw = true;
 }
 
@@ -232,22 +163,16 @@ function levelLabel(index: number): string {
   return TEXTS.levelLabel(index + 1, TEXTS.levels[levelAt(index).id].name);
 }
 
-/** The crosshair only shows when the mouse moves the beam. */
-function updateCursor(): void {
-  gameCanvas.classList.toggle('game--aim', mouseAim && !world.settings.classicLight);
-}
-
-function showsTouchControls(): boolean {
-  return debugParams.touch || touchControlsVisible(touchMode, touchDetected);
+/** With `?debug` the debug panel already shows these numbers, and more. */
+function showStats(visible: boolean): void {
+  if (debugOverlay) return;
+  if (visible) statsOverlay ??= new StatsOverlay(app, gameCanvas);
+  statsOverlay?.setVisible(visible);
 }
 
 /** Matches texts, HUD and controls to the device and the setting. */
 function applyTouchUi(): void {
-  const showing = showsTouchControls();
-  const root = document.documentElement.classList;
-  root.toggle('touch-ui', showing);
-  root.toggle('touch-capable', touchCapable);
-  root.toggle('has-mouse', debugParams.touch || mediaMatches('(any-pointer: fine)'));
+  const showing = touchUi.applyClasses();
   touchControls.setVisible(showing && state === 'playing');
   renderer.setHudLayout(showing, safeArea.read(insets));
   redraw = true;
@@ -257,94 +182,12 @@ function applyTouchUi(): void {
 function setPlaying(playing: boolean): void {
   sticks.clear();
   touchControls.refreshSticks();
-  touchControls.setVisible(playing && showsTouchControls());
-}
-
-/** "Reduce flicker" also stops the menu animations. */
-function applyReduceMotion(on: boolean): void {
-  document.documentElement.classList.toggle('reduce-motion', on);
-}
-
-/** Writes settings and progress, keeping any progress another open tab saved meanwhile. */
-function persist(): void {
-  const merged = mergeSave(loadSave(storage), {
-    reduceFlicker: chosenReduceFlicker,
-    muted: world.settings.muted,
-    classicLight: world.settings.classicLight,
-    mouseAim,
-    touchControls: touchMode,
-    leftHanded,
-    unlockedLevel: save.unlockedLevel,
-    bestLevelTimes: save.bestLevelTimes,
-    bestFullRunSeconds: save.bestFullRunSeconds,
-  });
-  save.unlockedLevel = merged.unlockedLevel;
-  save.bestLevelTimes = merged.bestLevelTimes;
-  save.bestFullRunSeconds = merged.bestFullRunSeconds;
-  writeSave(storage, merged);
-}
-
-function setMuted(muted: boolean): void {
-  world.settings.muted = muted;
-  sfx.setMuted(muted);
-  screens.setMuted(muted);
-  redraw = true;
-  persist();
-}
-
-/** Plays the sounds for what happened in the last logic step, then clears the events. */
-function playStepSounds(stepSeconds: number): void {
-  const { events } = world;
-  const batteryLevel =
-    world.status === 'playing'
-      ? lowBatteryLevel(world.flashlight.battery, BALANCE.audio.lowBatteryThreshold)
-      : 0;
-  updateCues(
-    cueState,
-    BALANCE.audio,
-    stepSeconds,
-    events.moving,
-    world.enemyNear,
-    events.enemyLit > 0,
-    batteryLevel,
-    cues,
-  );
-  updateMusic(musicState, BALANCE.music, stepSeconds, world.enemyNear, musicOut);
-  if (musicOut.chord >= 0) sfx.musicChord(musicOut.chord);
-  if (musicOut.note >= 0) sfx.musicNote(musicOut.note);
-  if (musicOut.pulse) sfx.musicPulse(musicOut.tension);
-  sfx.setBatteryLevel(batteryLevel);
-  if (cues.step) sfx.step();
-  if (cues.heartbeat) sfx.heartbeat(cues.heartbeatVolume);
-  if (cues.flicker) sfx.flicker();
-  if (cues.crackle) sfx.crackle();
-  if (world.status === 'playing') {
-    updateEnemyAudio(
-      enemyAudioState,
-      enemyAudioConfig,
-      world.room,
-      world.player,
-      world.nearestEnemy,
-      stepSeconds,
-      enemyAudio,
-    );
-    sfx.setEnemyMix(enemyAudio.pan, enemyAudio.gain, enemyAudio.cutoff);
-    if (enemyAudio.step) sfx.enemyStep(enemyAudio.stepVolume);
-    if (enemyAudio.breath) sfx.enemyBreath(enemyAudio.breathVolume);
-  }
-  if (events.keyPicked > 0) sfx.pickupKey();
-  if (events.batteryPicked > 0) sfx.pickupBattery();
-  if (events.doorLocked > 0) sfx.locked();
-  if (events.doorOpened > 0) sfx.win();
-  if (events.caught > 0) sfx.lose();
-  clearEvents(events);
+  touchControls.setVisible(playing && touchUi.showsControls());
 }
 
 function startRun(): void {
   resetWorld(world);
-  resetCues(cueState);
-  resetMusic(musicState, BALANCE.music);
-  resetEnemyAudio(enemyAudioState);
+  gameAudio.reset();
   // Started from a click or key press, so the browser allows audio.
   sfx.unlock();
   sfx.setBatteryLevel(0);
@@ -395,7 +238,7 @@ function finishRun(): void {
     screens.showDefeat(levelLabel(run.levelIndex));
   } else if (world.status === 'won') {
     const result = recordLevelWin(run, save, seconds, LEVEL_COUNT);
-    if (result.changed) persist();
+    if (result.changed) settings.persist();
     if (result.finished) {
       state = 'won';
       screens.showVictory({
@@ -443,9 +286,7 @@ gameCanvas.addEventListener('blur', (event) => {
 container.addEventListener(
   'pointerdown',
   (event) => {
-    if (event.pointerType !== 'touch' || touchDetected) return;
-    touchDetected = true;
-    touchCapable = true;
+    if (event.pointerType !== 'touch' || !touchUi.noteTouch()) return;
     if (state === 'playing') applyTouchUi();
     else window.setTimeout(applyTouchUi, TOUCH.menuLayoutDelayMs);
   },
@@ -460,7 +301,7 @@ let viewDensity = window.devicePixelRatio;
 function onViewChange(): void {
   viewDensity = window.devicePixelRatio;
   renderer.resize();
-  renderer.setHudLayout(showsTouchControls(), safeArea.read(insets));
+  renderer.setHudLayout(touchUi.showsControls(), safeArea.read(insets));
   redraw = true;
 }
 window.addEventListener('resize', onViewChange);
@@ -491,7 +332,8 @@ const loop = new GameLoop(
         pause(true);
         return;
       }
-      if (input.consumeMute()) setMuted(!world.settings.muted);
+      if (input.consumeMute()) settings.setMuted(!world.settings.muted);
+      if (input.consumeStats()) settings.toggleStats();
       input.readAxis(axis);
       sticks.applyMove(axis);
       stepInput.axisX = axis.x;
@@ -500,15 +342,19 @@ const loop = new GameLoop(
       stepInput.interact = input.consumeInteract();
       stepInput.aimAt =
         sticks.aimPoint(world.player.x, world.player.y, aimPoint) ??
-        (mouseAim && pointer.active ? renderer.pointToWorld(pointer.x, pointer.y, aimPoint) : null);
+        (settings.mouseAim && pointer.active
+          ? renderer.pointToWorld(pointer.x, pointer.y, aimPoint)
+          : null);
       stepWorld(world, stepInput, stepSeconds);
       debugOverlay?.countStep();
-      playStepSounds(stepSeconds);
+      gameAudio.playStep(world, stepSeconds);
+      clearEvents(world.events);
       if (world.status !== 'playing') finishRun();
-      else if (showsTouchControls()) syncTouchControls();
+      else if (touchUi.showsControls()) syncTouchControls();
     },
     render: (alpha) => {
       renderer.render(world, alpha);
+      statsOverlay?.frame(performance.now(), state === 'playing', pacer.divisor);
       debugOverlay?.frame(performance.now(), world, {
         state,
         level: levelAt(run.levelIndex).id,
